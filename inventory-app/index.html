@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inventory System</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg-primary: #ffffff;
+      --bg-secondary: #f5f5f4;
+      --bg-tertiary: #f0efea;
+      --text-primary: #1a1a18;
+      --text-secondary: #6b6b67;
+      --text-tertiary: #9b9b96;
+      --border: rgba(0,0,0,0.12);
+      --border-md: rgba(0,0,0,0.22);
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --green: #1D9E75;
+      --green-bg: #EAF3DE;
+      --green-text: #3B6D11;
+      --red: #D85A30;
+      --red-bg: #FCEBEB;
+      --red-text: #A32D2D;
+      --amber-bg: #FAEEDA;
+      --amber-text: #854F0B;
+      --blue: #185FA5;
+      --blue-bg: #E6F1FB;
+      --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-primary: #1c1c1a;
+        --bg-secondary: #252523;
+        --bg-tertiary: #2e2e2c;
+        --text-primary: #f0efe9;
+        --text-secondary: #a8a8a2;
+        --text-tertiary: #6b6b67;
+        --border: rgba(255,255,255,0.1);
+        --border-md: rgba(255,255,255,0.2);
+        --green-bg: #0a2e1e;
+        --green-text: #5DCAA5;
+        --red-bg: #2e1010;
+        --red-text: #F09595;
+        --amber-bg: #2e1e05;
+        --amber-text: #FAC775;
+        --blue-bg: #071c33;
+      }
+    }
+
+    html, body { height: 100%; background: var(--bg-tertiary); color: var(--text-primary); font-family: var(--font); font-size: 15px; }
+
+    .layout { display: flex; min-height: 100vh; }
+
+    /* Sidebar */
+    .sidebar {
+      width: 220px; background: var(--bg-primary); border-right: 0.5px solid var(--border);
+      display: flex; flex-direction: column; padding: 1.5rem 0; position: fixed; top: 0; left: 0; height: 100vh; z-index: 10;
+    }
+    .sidebar-logo { padding: 0 1.25rem 1.5rem; font-size: 17px; font-weight: 600; letter-spacing: -0.3px; display: flex; align-items: center; gap: 10px; }
+    .logo-icon { width: 32px; height: 32px; background: var(--blue); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .logo-icon svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .sidebar-nav { flex: 1; padding: 0 0.75rem; display: flex; flex-direction: column; gap: 2px; }
+    .nav-item {
+      display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: var(--radius-md);
+      font-size: 14px; color: var(--text-secondary); cursor: pointer; border: none; background: transparent; width: 100%; text-align: left;
+    }
+    .nav-item:hover { background: var(--bg-secondary); color: var(--text-primary); }
+    .nav-item.active { background: var(--blue-bg); color: var(--blue); font-weight: 500; }
+    .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
+    .nav-section { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); padding: 12px 12px 4px; }
+
+    /* Main content */
+    .main { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
+    .topbar { background: var(--bg-primary); border-bottom: 0.5px solid var(--border); padding: 0 2rem; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 5; }
+    .topbar h1 { font-size: 16px; font-weight: 500; }
+    .topbar-right { display: flex; align-items: center; gap: 10px; }
+    .content { padding: 1.75rem 2rem; flex: 1; }
+
+    /* Stats grid */
+    .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 1.5rem; }
+    .stat-card { background: var(--bg-secondary); border-radius: var(--radius-md); padding: 16px 18px; }
+    .stat-label { font-size: 11px; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; font-weight: 500; }
+    .stat-value { font-size: 24px; font-weight: 500; line-height: 1.2; }
+    .stat-sub { font-size: 12px; margin-top: 5px; color: var(--text-secondary); }
+    .pos { color: var(--green); } .neg { color: var(--red); }
+
+    /* Cards */
+    .card { background: var(--bg-primary); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; }
+    .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+    .card-title { font-size: 14px; font-weight: 500; }
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+
+    /* Buttons */
+    .btn { font-size: 13px; padding: 8px 14px; border: 0.5px solid var(--border-md); border-radius: var(--radius-md); cursor: pointer; background: transparent; color: var(--text-primary); font-family: var(--font); }
+    .btn:hover { background: var(--bg-secondary); }
+    .btn-primary { background: var(--blue); color: #E6F1FB; border-color: var(--blue); }
+    .btn-primary:hover { background: #0C447C; border-color: #0C447C; }
+    .btn-sm { font-size: 12px; padding: 5px 10px; }
+
+    /* Table */
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { font-size: 11px; font-weight: 500; color: var(--text-secondary); text-align: left; padding: 8px 12px; border-bottom: 0.5px solid var(--border); text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
+    td { padding: 11px 12px; border-bottom: 0.5px solid var(--border); vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: var(--bg-secondary); }
+
+    /* Badges */
+    .badge { display: inline-block; font-size: 11px; padding: 3px 9px; border-radius: 20px; font-weight: 500; }
+    .badge-green { background: var(--green-bg); color: var(--green-text); }
+    .badge-amber { background: var(--amber-bg); color: var(--amber-text); }
+    .badge-red { background: var(--red-bg); color: var(--red-text); }
+
+    /* Form / Modal */
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; align-items: center; justify-content: center; }
+    .overlay.open { display: flex; }
+    .modal { background: var(--bg-primary); border-radius: var(--radius-lg); padding: 1.75rem; width: 420px; border: 0.5px solid var(--border); max-height: 90vh; overflow-y: auto; }
+    .modal h2 { font-size: 16px; font-weight: 500; margin-bottom: 1.25rem; }
+    .form-row { margin-bottom: 14px; }
+    .form-row label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 5px; font-weight: 500; }
+    .form-row input, .form-row select {
+      width: 100%; padding: 9px 12px; font-size: 13px; border: 0.5px solid var(--border-md);
+      border-radius: var(--radius-md); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font);
+    }
+    .form-row input:focus, .form-row select:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .form-actions { display: flex; gap: 8px; margin-top: 1.25rem; justify-content: flex-end; }
+
+    /* Charts */
+    .chart-wrap { position: relative; width: 100%; }
+
+    /* Transactions list */
+    .tx-item { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 0.5px solid var(--border); }
+    .tx-item:last-child { border-bottom: none; }
+    .tx-dot { width: 8px; height: 8px; border-radius: 50%; margin-right: 12px; flex-shrink: 0; }
+    .tx-info { display: flex; align-items: center; flex: 1; min-width: 0; }
+    .tx-name { font-weight: 500; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .tx-meta { font-size: 11px; color: var(--text-secondary); margin-top: 1px; }
+
+    /* Search */
+    .search-input { font-size: 13px; padding: 7px 12px; border: 0.5px solid var(--border-md); border-radius: var(--radius-md); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font); width: 200px; }
+    .search-input:focus { outline: 2px solid var(--blue); outline-offset: 1px; }
+
+    /* Chart range select */
+    .chart-select { font-size: 12px; padding: 5px 10px; border: 0.5px solid var(--border); border-radius: 6px; background: var(--bg-primary); color: var(--text-primary); font-family: var(--font); cursor: pointer; }
+
+    /* Legend */
+    .legend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 10px; font-size: 12px; color: var(--text-secondary); }
+    .legend span { display: flex; align-items: center; gap: 5px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+
+    /* Tab pages */
+    .page { display: none; } .page.active { display: block; }
+
+    /* Empty state */
+    .empty { text-align: center; padding: 3rem; color: var(--text-secondary); font-size: 14px; }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 640px) {
+      .sidebar { display: none; }
+      .main { margin-left: 0; }
+      .content { padding: 1rem; }
+      .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+    }
+  </style>
+</head>
+<body>
+<div class="layout">
+
+  <!-- Sidebar -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="6" rx="1"/><rect x="2" y="13" width="20" height="6" rx="1"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="16" x2="6.01" y2="16"/></svg>
+      </div>
+      Inventra
+    </div>
+    <div class="nav-section">Menu</div>
+    <div class="sidebar-nav">
+      <button class="nav-item active" onclick="showPage('dashboard', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        Dashboard
+      </button>
+      <button class="nav-item" onclick="showPage('inventory', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
+        Inventory
+      </button>
+      <button class="nav-item" onclick="showPage('transactions', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        Transactions
+      </button>
+      <div class="nav-section">Reports</div>
+      <button class="nav-item" onclick="showPage('reports', this)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Analytics
+      </button>
+    </div>
+  </nav>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <h1 id="page-title">Dashboard</h1>
+      <div class="topbar-right">
+        <button class="btn btn-sm" onclick="openTxModal()">+ Transaction</button>
+        <button class="btn btn-sm btn-primary" onclick="openAddModal()">+ Add Product</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- DASHBOARD -->
+      <div id="page-dashboard" class="page active">
+        <div class="stats-grid" id="stats-grid"></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Daily income &amp; outcome</span>
+              <select class="chart-select" id="chart-range" onchange="renderIncomeChart()">
+                <option value="7">Last 7 days</option>
+                <option value="14">Last 14 days</option>
+                <option value="30">Last 30 days</option>
+              </select>
+            </div>
+            <div class="chart-wrap" style="height:220px"><canvas id="incomeChart" role="img" aria-label="Daily income and outcome chart"></canvas></div>
+            <div class="legend">
+              <span><span class="legend-dot" style="background:#1D9E75"></span>Income</span>
+              <span><span class="legend-dot" style="background:#D85A30"></span>Outcome</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Stock by category</span></div>
+            <div class="chart-wrap" style="height:220px"><canvas id="catChart" role="img" aria-label="Stock by category doughnut chart"></canvas></div>
+            <div class="legend" id="cat-legend"></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:1rem">
+          <div class="card-header"><span class="card-title">Recent transactions</span></div>
+          <div id="recent-tx"></div>
+        </div>
+      </div>
+
+      <!-- INVENTORY -->
+      <div id="page-inventory" class="page">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">All products</span>
+            <div style="display:flex;gap:8px;align-items:center">
+              <input class="search-input" id="search" placeholder="Search products..." oninput="renderInventory()">
+              <button class="btn btn-primary btn-sm" onclick="openAddModal()">+ Add product</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Product</th><th>Category</th><th>Stock</th><th>Cost (₱)</th><th>Sell (₱)</th><th>Margin</th><th>Status</th><th></th></tr></thead>
+              <tbody id="inv-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- TRANSACTIONS -->
+      <div id="page-transactions" class="page">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Transaction log</span>
+            <div style="display:flex;gap:8px">
+              <select class="chart-select" id="tx-filter" onchange="renderTxLog()">
+                <option value="all">All types</option>
+                <option value="out">Sales</option>
+                <option value="in">Restocks</option>
+              </select>
+              <button class="btn btn-primary btn-sm" onclick="openTxModal()">+ Record</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Date</th><th>Product</th><th>Type</th><th>Qty</th><th>Unit price</th><th>Total</th><th>Note</th></tr></thead>
+              <tbody id="tx-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- REPORTS / ANALYTICS -->
+      <div id="page-reports" class="page">
+        <div class="stats-grid" id="report-stats"></div>
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header"><span class="card-title">Revenue trend (30 days)</span></div>
+            <div class="chart-wrap" style="height:240px"><canvas id="revenueChart" role="img" aria-label="30-day revenue trend line chart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-header"><span class="card-title">Top products by revenue</span></div>
+            <div class="chart-wrap" style="height:240px"><canvas id="topProductsChart" role="img" aria-label="Top products horizontal bar chart"></canvas></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:1rem">
+          <div class="card-header"><span class="card-title">Low stock products</span></div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Product</th><th>Category</th><th>Current stock</th><th>Min stock</th><th>Shortfall</th><th></th></tr></thead>
+              <tbody id="low-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- Add Product Modal -->
+<div class="overlay" id="add-modal">
+  <div class="modal">
+    <h2 id="modal-title">Add product</h2>
+    <div class="form-row"><label>Product name</label><input id="f-name" placeholder="e.g. Wireless Keyboard"></div>
+    <div class="form-row"><label>Category</label>
+      <select id="f-cat">
+        <option>Electronics</option><option>Food &amp; Beverage</option><option>Clothing</option><option>Tools</option><option>Other</option>
+      </select>
+    </div>
+    <div class="form-grid">
+      <div class="form-row"><label>Initial stock</label><input id="f-stock" type="number" min="0" placeholder="0"></div>
+      <div class="form-row"><label>Low stock alert</label><input id="f-low" type="number" min="0" placeholder="5"></div>
+    </div>
+    <div class="form-grid">
+      <div class="form-row"><label>Cost price (₱)</label><input id="f-cost" type="number" min="0" step="0.01" placeholder="0.00"></div>
+      <div class="form-row"><label>Sell price (₱)</label><input id="f-sell" type="number" min="0" step="0.01" placeholder="0.00"></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal('add-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveProduct()">Save product</button>
+    </div>
+  </div>
+</div>
+
+<!-- Transaction Modal -->
+<div class="overlay" id="tx-modal">
+  <div class="modal">
+    <h2>Record transaction</h2>
+    <div class="form-row"><label>Product</label><select id="tx-product" style="width:100%;padding:9px 12px;font-size:13px;border:0.5px solid var(--border-md);border-radius:var(--radius-md);background:var(--bg-primary);color:var(--text-primary);font-family:var(--font);"></select></div>
+    <div class="form-row"><label>Transaction type</label>
+      <select id="tx-type" style="width:100%;padding:9px 12px;font-size:13px;border:0.5px solid var(--border-md);border-radius:var(--radius-md);background:var(--bg-primary);color:var(--text-primary);font-family:var(--font);">
+        <option value="out">Outgoing — Sale</option>
+        <option value="in">Incoming — Restock</option>
+      </select>
+    </div>
+    <div class="form-grid">
+      <div class="form-row"><label>Quantity</label><input id="tx-qty" type="number" min="1" placeholder="1"></div>
+      <div class="form-row"><label>Unit price (₱)</label><input id="tx-price" type="number" min="0" step="0.01" placeholder="0.00"></div>
+    </div>
+    <div class="form-row"><label>Note (optional)</label><input id="tx-note" placeholder="e.g. Sale to walk-in customer"></div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal('tx-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveTx()">Record</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ─── Data ─── */
+let products = [
+  { id:1, name:'USB-C Hub', category:'Electronics', stock:42, low:10, cost:350, sell:650 },
+  { id:2, name:'Wireless Mouse', category:'Electronics', stock:8, low:10, cost:250, sell:480 },
+  { id:3, name:'Coffee Beans 250g', category:'Food & Beverage', stock:120, low:20, cost:80, sell:150 },
+  { id:4, name:'Cotton T-Shirt', category:'Clothing', stock:3, low:5, cost:200, sell:380 },
+  { id:5, name:'Screwdriver Set', category:'Tools', stock:25, low:5, cost:180, sell:320 },
+  { id:6, name:'Mineral Water 1L', category:'Food & Beverage', stock:200, low:30, cost:20, sell:35 }
+];
+let nextId = 7;
+
+function genDates(n) {
+  const dates = [];
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    dates.push(d.toISOString().split('T')[0]);
+  }
+  return dates;
+}
+function rnd(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+
+let transactions = [];
+const d30 = genDates(30);
+const seedProds = [
+  { id:1, name:'USB-C Hub', cost:350, sell:650 },
+  { id:3, name:'Coffee Beans 250g', cost:80, sell:150 },
+  { id:5, name:'Screwdriver Set', cost:180, sell:320 },
+  { id:6, name:'Mineral Water 1L', cost:20, sell:35 }
+];
+d30.forEach((date, i) => {
+  const p = seedProds[i % seedProds.length];
+  transactions.push({ id: i * 2 + 1, date, productId: p.id, productName: p.name, type: 'out', qty: rnd(2, 12), price: p.sell, note: 'Sale' });
+  if (i % 3 === 0) {
+    const p2 = seedProds[(i + 1) % seedProds.length];
+    transactions.push({ id: i * 2 + 2, date, productId: p2.id, productName: p2.name, type: 'in', qty: rnd(10, 30), price: p2.cost, note: 'Restock' });
+  }
+});
+let nextTxId = transactions.length + 10;
+
+const catColors = { 'Electronics': '#185FA5', 'Food & Beverage': '#1D9E75', 'Clothing': '#D85A30', 'Tools': '#BA7517', 'Other': '#7F77DD' };
+let incomeChartObj = null, catChartObj = null, revenueChartObj = null, topChartObj = null;
+
+/* ─── Navigation ─── */
+const pageTitles = { dashboard: 'Dashboard', inventory: 'Inventory', transactions: 'Transactions', reports: 'Analytics' };
+
+function showPage(name, btn) {
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  document.getElementById('page-' + name).classList.add('active');
+  if (btn) btn.classList.add('active');
+  document.getElementById('page-title').textContent = pageTitles[name];
+  if (name === 'dashboard') { setTimeout(() => { renderIncomeChart(); renderCatChart(); }, 60); }
+  if (name === 'reports') { setTimeout(() => { renderReportCharts(); }, 60); }
+}
+
+/* ─── Stats ─── */
+function renderStats() {
+  const totalItems = products.reduce((a, p) => a + p.stock, 0);
+  const totalValue = products.reduce((a, p) => a + (p.stock * p.cost), 0);
+  const lowStock = products.filter(p => p.stock <= p.low).length;
+  const all7 = transactions.filter(t => { const d = new Date(t.date); return (new Date() - d) / 86400000 <= 7; });
+  const rev7 = all7.filter(t => t.type === 'out').reduce((a, t) => a + (t.qty * t.price), 0);
+  const cost7 = all7.filter(t => t.type === 'in').reduce((a, t) => a + (t.qty * t.price), 0);
+  const profit7 = rev7 - cost7;
+  document.getElementById('stats-grid').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total SKUs</div><div class="stat-value">${products.length}</div><div class="stat-sub">${totalItems.toLocaleString()} units total</div></div>
+    <div class="stat-card"><div class="stat-label">Inventory value</div><div class="stat-value">₱${totalValue.toLocaleString()}</div><div class="stat-sub">At cost price</div></div>
+    <div class="stat-card"><div class="stat-label">7-day profit</div><div class="stat-value ${profit7 >= 0 ? 'pos' : 'neg'}">₱${profit7.toLocaleString()}</div><div class="stat-sub ${profit7 >= 0 ? 'pos' : 'neg'}">${profit7 >= 0 ? '▲' : '▼'} Revenue ₱${rev7.toLocaleString()}</div></div>
+    <div class="stat-card"><div class="stat-label">Low stock alerts</div><div class="stat-value ${lowStock > 0 ? 'neg' : ''}">${lowStock}</div><div class="stat-sub">Products need restock</div></div>
+  `;
+}
+
+/* ─── Charts ─── */
+function renderIncomeChart() {
+  const n = parseInt(document.getElementById('chart-range').value);
+  const dates = genDates(n);
+  const income = dates.map(d => transactions.filter(t => t.date === d && t.type === 'out').reduce((a, t) => a + (t.qty * t.price), 0));
+  const outcome = dates.map(d => transactions.filter(t => t.date === d && t.type === 'in').reduce((a, t) => a + (t.qty * t.price), 0));
+  const labels = dates.map(d => { const [, m, day] = d.split('-'); return `${m}/${day}`; });
+  const ctx = document.getElementById('incomeChart').getContext('2d');
+  if (incomeChartObj) incomeChartObj.destroy();
+  incomeChartObj = new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: 'Income', data: income, backgroundColor: '#1D9E75', borderRadius: 3, barPercentage: 0.6 },
+      { label: 'Outcome', data: outcome, backgroundColor: '#D85A30', borderRadius: 3, barPercentage: 0.6 }
+    ]},
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => '₱' + c.raw.toLocaleString() } } },
+      scales: {
+        x: { ticks: { font: { size: 10 }, autoSkip: true, maxTicksLimit: n <= 7 ? 7 : 10, maxRotation: 45 } },
+        y: { ticks: { callback: v => '₱' + v.toLocaleString(), font: { size: 10 } }, grid: { color: 'rgba(128,128,128,0.08)' } }
+      }
+    }
+  });
+}
+
+function renderCatChart() {
+  const cats = {};
+  products.forEach(p => { cats[p.category] = (cats[p.category] || 0) + p.stock; });
+  const labels = Object.keys(cats), data = Object.values(cats);
+  const colors = labels.map(l => catColors[l] || '#888');
+  const ctx = document.getElementById('catChart').getContext('2d');
+  if (catChartObj) catChartObj.destroy();
+  catChartObj = new Chart(ctx, {
+    type: 'doughnut',
+    data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 2, borderColor: '#ffffff' }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.label}: ${c.raw} units` } } } }
+  });
+  document.getElementById('cat-legend').innerHTML = labels.map((l, i) =>
+    `<span><span class="legend-dot" style="background:${colors[i]}"></span>${l}</span>`
+  ).join('');
+}
+
+function renderRecentTx() {
+  const recent = [...transactions].sort((a, b) => b.id - a.id).slice(0, 6);
+  document.getElementById('recent-tx').innerHTML = recent.map(t => `
+    <div class="tx-item">
+      <div class="tx-info">
+        <div class="tx-dot" style="background:${t.type === 'out' ? '#1D9E75' : '#D85A30'}"></div>
+        <div><div class="tx-name">${t.productName}</div><div class="tx-meta">${t.date} · ${t.note}</div></div>
+      </div>
+      <div style="text-align:right;flex-shrink:0;margin-left:16px">
+        <div style="font-weight:500;font-size:13px;color:${t.type === 'out' ? '#1D9E75' : '#D85A30'}">${t.type === 'out' ? '+' : '-'}₱${(t.qty * t.price).toLocaleString()}</div>
+        <div style="font-size:11px;color:var(--text-secondary)">${t.qty} × ₱${t.price}</div>
+      </div>
+    </div>`).join('');
+}
+
+/* ─── Inventory ─── */
+function stockStatus(p) {
+  if (p.stock === 0) return ['Out of stock', 'badge-red'];
+  if (p.stock <= p.low) return ['Low stock', 'badge-amber'];
+  return ['In stock', 'badge-green'];
+}
+
+function renderInventory() {
+  const q = (document.getElementById('search').value || '').toLowerCase();
+  const filtered = products.filter(p => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q));
+  document.getElementById('inv-tbody').innerHTML = filtered.length ? filtered.map(p => {
+    const [label, cls] = stockStatus(p);
+    const margin = p.sell > 0 ? Math.round((p.sell - p.cost) / p.sell * 100) : 0;
+    return `<tr>
+      <td style="font-weight:500">${p.name}</td>
+      <td style="color:var(--text-secondary)">${p.category}</td>
+      <td>${p.stock} <span style="font-size:11px;color:var(--text-tertiary)">min ${p.low}</span></td>
+      <td>₱${p.cost.toLocaleString()}</td>
+      <td>₱${p.sell.toLocaleString()}</td>
+      <td><span style="color:${margin >= 30 ? '#1D9E75' : margin >= 15 ? '#BA7517' : '#D85A30'}">${margin}%</span></td>
+      <td><span class="badge ${cls}">${label}</span></td>
+      <td><button class="btn btn-sm" onclick="quickRestock(${p.id})">Restock</button></td>
+    </tr>`;
+  }).join('') : `<tr><td colspan="8"><div class="empty">No products found</div></td></tr>`;
+}
+
+/* ─── Transaction Log ─── */
+function renderTxLog() {
+  const f = document.getElementById('tx-filter').value;
+  const filtered = [...transactions].filter(t => f === 'all' || t.type === f).sort((a, b) => b.id - a.id).slice(0, 100);
+  document.getElementById('tx-tbody').innerHTML = filtered.map(t => `<tr>
+    <td style="color:var(--text-secondary)">${t.date}</td>
+    <td style="font-weight:500">${t.productName}</td>
+    <td><span class="badge ${t.type === 'out' ? 'badge-green' : 'badge-amber'}">${t.type === 'out' ? 'Sale' : 'Restock'}</span></td>
+    <td>${t.qty}</td>
+    <td>₱${t.price.toLocaleString()}</td>
+    <td style="font-weight:500">₱${(t.qty * t.price).toLocaleString()}</td>
+    <td style="color:var(--text-secondary)">${t.note || '-'}</td>
+  </tr>`).join('');
+}
+
+/* ─── Report Charts ─── */
+function renderReportCharts() {
+  const dates = genDates(30);
+  const revenue = dates.map(d => transactions.filter(t => t.date === d && t.type === 'out').reduce((a, t) => a + (t.qty * t.price), 0));
+  const labels = dates.map(d => { const [, m, day] = d.split('-'); return `${m}/${day}`; });
+
+  const ctx1 = document.getElementById('revenueChart').getContext('2d');
+  if (revenueChartObj) revenueChartObj.destroy();
+  revenueChartObj = new Chart(ctx1, {
+    type: 'line',
+    data: { labels, datasets: [{ label: 'Revenue', data: revenue, borderColor: '#185FA5', backgroundColor: 'rgba(24,95,165,0.08)', fill: true, tension: 0.4, pointRadius: 2, borderWidth: 2 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => '₱' + c.raw.toLocaleString() } } }, scales: { x: { ticks: { font: { size: 10 }, autoSkip: true, maxTicksLimit: 10, maxRotation: 45 } }, y: { ticks: { callback: v => '₱' + v.toLocaleString(), font: { size: 10 } }, grid: { color: 'rgba(128,128,128,0.08)' } } } }
+  });
+
+  const prodRev = {};
+  transactions.filter(t => t.type === 'out').forEach(t => { prodRev[t.productName] = (prodRev[t.productName] || 0) + (t.qty * t.price); });
+  const sorted = Object.entries(prodRev).sort((a, b) => b[1] - a[1]).slice(0, 5);
+  const ctx2 = document.getElementById('topProductsChart').getContext('2d');
+  if (topChartObj) topChartObj.destroy();
+  topChartObj = new Chart(ctx2, {
+    type: 'bar',
+    data: { labels: sorted.map(x => x[0]), datasets: [{ label: 'Revenue', data: sorted.map(x => x[1]), backgroundColor: ['#185FA5', '#1D9E75', '#BA7517', '#D85A30', '#7F77DD'], borderRadius: 4, barPercentage: 0.6 }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => '₱' + c.raw.toLocaleString() } } }, scales: { x: { ticks: { callback: v => '₱' + v.toLocaleString(), font: { size: 10 } }, grid: { color: 'rgba(128,128,128,0.08)' } }, y: { ticks: { font: { size: 11 } } } } }
+  });
+
+  const totalRev = transactions.filter(t => t.type === 'out').reduce((a, t) => a + (t.qty * t.price), 0);
+  const totalCost = transactions.filter(t => t.type === 'in').reduce((a, t) => a + (t.qty * t.price), 0);
+  const totalProfit = totalRev - totalCost;
+  const avgDaily = Math.round(totalRev / 30);
+  document.getElementById('report-stats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total revenue (30d)</div><div class="stat-value">₱${totalRev.toLocaleString()}</div><div class="stat-sub">All sales</div></div>
+    <div class="stat-card"><div class="stat-label">Total cost (30d)</div><div class="stat-value">₱${totalCost.toLocaleString()}</div><div class="stat-sub">All restocks</div></div>
+    <div class="stat-card"><div class="stat-label">Net profit (30d)</div><div class="stat-value ${totalProfit >= 0 ? 'pos' : 'neg'}">₱${totalProfit.toLocaleString()}</div><div class="stat-sub">Revenue minus cost</div></div>
+    <div class="stat-card"><div class="stat-label">Avg daily revenue</div><div class="stat-value">₱${avgDaily.toLocaleString()}</div><div class="stat-sub">30-day average</div></div>
+  `;
+
+  const lowItems = products.filter(p => p.stock <= p.low);
+  document.getElementById('low-tbody').innerHTML = lowItems.length ? lowItems.map(p => `<tr>
+    <td style="font-weight:500">${p.name}</td>
+    <td>${p.category}</td>
+    <td style="color:${p.stock === 0 ? '#D85A30' : '#BA7517'};font-weight:500">${p.stock}</td>
+    <td>${p.low}</td>
+    <td style="color:#D85A30;font-weight:500">${Math.max(0, p.low - p.stock)} units short</td>
+    <td><button class="btn btn-sm" onclick="quickRestock(${p.id})">Restock</button></td>
+  </tr>`).join('') : `<tr><td colspan="6"><div class="empty">All products are adequately stocked</div></td></tr>`;
+}
+
+/* ─── Modals ─── */
+function openAddModal() {
+  ['f-name', 'f-stock', 'f-low', 'f-cost', 'f-sell'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('modal-title').textContent = 'Add product';
+  document.getElementById('add-modal').classList.add('open');
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+function saveProduct() {
+  const name = document.getElementById('f-name').value.trim();
+  if (!name) { document.getElementById('f-name').focus(); return; }
+  products.push({
+    id: nextId++, name,
+    category: document.getElementById('f-cat').value,
+    stock: parseInt(document.getElementById('f-stock').value) || 0,
+    low: parseInt(document.getElementById('f-low').value) || 5,
+    cost: parseFloat(document.getElementById('f-cost').value) || 0,
+    sell: parseFloat(document.getElementById('f-sell').value) || 0
+  });
+  closeModal('add-modal');
+  renderInventory(); renderStats(); renderCatChart();
+}
+
+function quickRestock(id) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  const qty = parseInt(prompt(`Restock "${p.name}" — enter quantity to add:`));
+  if (!qty || qty < 1) return;
+  p.stock += qty;
+  const today = new Date().toISOString().split('T')[0];
+  transactions.push({ id: nextTxId++, date: today, productId: p.id, productName: p.name, type: 'in', qty, price: p.cost, note: 'Manual restock' });
+  renderInventory(); renderStats(); renderRecentTx(); renderTxLog();
+}
+
+function openTxModal() {
+  document.getElementById('tx-product').innerHTML = products.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+  ['tx-qty', 'tx-price', 'tx-note'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('tx-modal').classList.add('open');
+}
+
+function saveTx() {
+  const pid = parseInt(document.getElementById('tx-product').value);
+  const p = products.find(x => x.id === pid);
+  const type = document.getElementById('tx-type').value;
+  const qty = parseInt(document.getElementById('tx-qty').value) || 0;
+  const price = parseFloat(document.getElementById('tx-price').value) || 0;
+  const note = document.getElementById('tx-note').value;
+  if (qty < 1) { document.getElementById('tx-qty').focus(); return; }
+  if (type === 'out' && p.stock < qty) { alert(`Not enough stock! Only ${p.stock} units available.`); return; }
+  if (type === 'out') p.stock -= qty; else p.stock += qty;
+  const today = new Date().toISOString().split('T')[0];
+  transactions.push({ id: nextTxId++, date: today, productId: pid, productName: p.name, type, qty, price, note });
+  closeModal('tx-modal');
+  renderStats(); renderRecentTx(); renderInventory(); renderTxLog();
+  renderIncomeChart(); renderCatChart();
+}
+
+/* ─── Close modal on backdrop click ─── */
+document.querySelectorAll('.overlay').forEach(el => el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); }));
+
+/* ─── Init ─── */
+renderStats();
+renderRecentTx();
+renderInventory();
+renderTxLog();
+setTimeout(() => { renderIncomeChart(); renderCatChart(); }, 100);
+</script>
+</body>
+</html>
