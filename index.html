@@ -61,10 +61,10 @@
     /* Sidebar */
     .sidebar {
       width: 220px; background: var(--bg-primary); border-right: 0.5px solid var(--border);
-      display: flex; flex-direction: column; padding: 1.5rem 0; position: fixed; top: 0; left: 0; height: 100vh; z-index: 10;
+      display: flex; flex-direction: column; padding: 1.5rem 0; position: fixed; top: 0; left: 0; height: 100vh; z-index: 100;
     }
     .sidebar-logo { padding: 0 1.25rem 1.5rem; font-size: 17px; font-weight: 600; letter-spacing: -0.3px; display: flex; align-items: center; gap: 10px; }
-    .logo-icon { width: 32px; height: 32px; background: var(--blue); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+    .logo-icon { width: 32px; height: 32px; background: var(--blue); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .logo-icon svg { width: 18px; height: 18px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
     .sidebar-nav { flex: 1; padding: 0 0.75rem; display: flex; flex-direction: column; gap: 2px; }
     .nav-item {
@@ -76,11 +76,26 @@
     .nav-item svg { width: 16px; height: 16px; flex-shrink: 0; }
     .nav-section { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-tertiary); padding: 12px 12px 4px; }
 
+    /* Sidebar backdrop */
+    .sidebar-backdrop {
+      display: none; position: fixed; inset: 0; z-index: 90;
+      background: rgba(0,0,0,0.4);
+    }
+    .sidebar-backdrop.open { display: block; }
+
     /* Main content */
     .main { margin-left: 220px; flex: 1; display: flex; flex-direction: column; min-height: 100vh; }
-    .topbar { background: var(--bg-primary); border-bottom: 0.5px solid var(--border); padding: 0 2rem; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 5; }
-    .topbar h1 { font-size: 16px; font-weight: 500; }
-    .topbar-right { display: flex; align-items: center; gap: 10px; }
+
+    /* Topbar */
+    .topbar {
+      background: var(--bg-primary); border-bottom: 0.5px solid var(--border);
+      padding: 0 2rem; height: 60px; display: flex; align-items: center;
+      justify-content: space-between; position: sticky; top: 0; z-index: 50;
+      gap: 10px;
+    }
+    .topbar h1 { font-size: 16px; font-weight: 500; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .topbar-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
     .content { padding: 1.75rem 2rem; flex: 1; }
 
     /* Stats grid */
@@ -93,19 +108,22 @@
 
     /* Cards */
     .card { background: var(--bg-primary); border: 0.5px solid var(--border); border-radius: var(--radius-lg); padding: 1.25rem 1.5rem; }
-    .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; }
+    .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem; flex-wrap: wrap; gap: 10px; }
     .card-title { font-size: 14px; font-weight: 500; }
     .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
 
     /* Buttons */
-    .btn { font-size: 13px; padding: 8px 14px; border: 0.5px solid var(--border-md); border-radius: var(--radius-md); cursor: pointer; background: transparent; color: var(--text-primary); font-family: var(--font); }
+    .btn { font-size: 13px; padding: 8px 14px; border: 0.5px solid var(--border-md); border-radius: var(--radius-md); cursor: pointer; background: transparent; color: var(--text-primary); font-family: var(--font); white-space: nowrap; }
     .btn:hover { background: var(--bg-secondary); }
     .btn-primary { background: var(--blue); color: #E6F1FB; border-color: var(--blue); }
     .btn-primary:hover { background: #0C447C; border-color: #0C447C; }
     .btn-sm { font-size: 12px; padding: 5px 10px; }
+    .btn-danger { background: var(--red-bg); color: var(--red-text); border-color: var(--red-text); }
+    .btn-danger:hover { background: var(--red); color: #fff; border-color: var(--red); }
+    .btn-danger:disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
 
     /* Table */
-    .table-wrap { overflow-x: auto; }
+    .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th { font-size: 11px; font-weight: 500; color: var(--text-secondary); text-align: left; padding: 8px 12px; border-bottom: 0.5px solid var(--border); text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap; }
     td { padding: 11px 12px; border-bottom: 0.5px solid var(--border); vertical-align: middle; }
@@ -119,9 +137,9 @@
     .badge-red { background: var(--red-bg); color: var(--red-text); }
 
     /* Form / Modal */
-    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; align-items: center; justify-content: center; }
+    .overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; align-items: center; justify-content: center; padding: 1rem; }
     .overlay.open { display: flex; }
-    .modal { background: var(--bg-primary); border-radius: var(--radius-lg); padding: 1.75rem; width: 420px; border: 0.5px solid var(--border); max-height: 90vh; overflow-y: auto; }
+    .modal { background: var(--bg-primary); border-radius: var(--radius-lg); padding: 1.75rem; width: 420px; max-width: 100%; border: 0.5px solid var(--border); max-height: 90vh; overflow-y: auto; }
     .modal h2 { font-size: 16px; font-weight: 500; margin-bottom: 1.25rem; }
     .form-row { margin-bottom: 14px; }
     .form-row label { display: block; font-size: 12px; color: var(--text-secondary); margin-bottom: 5px; font-weight: 500; }
@@ -162,41 +180,82 @@
     /* Empty state */
     .empty { text-align: center; padding: 3rem; color: var(--text-secondary); font-size: 14px; }
 
-    /* Responsive */
+    /* Tx filter row */
+    .tx-filters { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .tx-filters select,
+    .tx-filters input { padding: 7px 10px; border: 0.5px solid var(--border-md); border-radius: var(--radius-md); background: var(--bg-primary); color: var(--text-primary); font-family: var(--font); font-size: 13px; }
+    .tx-filters input[type="text"] { min-width: 140px; }
+    .tx-filters input[type="date"] { min-width: 130px; }
+
+    /* Hamburger */
+    .hamburger { display: none; background: none; border: none; cursor: pointer; padding: 6px; flex-shrink: 0; }
+    .hamburger svg { width: 22px; height: 22px; display: block; }
+
+    /* ── Responsive ── */
     @media (max-width: 900px) {
       .stats-grid { grid-template-columns: repeat(2, 1fr); }
       .grid-2 { grid-template-columns: 1fr; }
     }
+
     @media (max-width: 640px) {
-      .sidebar { display: block; position: fixed; top: 0; left: 0; width: 260px; height: 100vh; z-index: 10; transform: translateX(-100%); transition: transform 0.3s ease; }
+      /* Sidebar slide-in */
+      .sidebar {
+        width: 260px; transform: translateX(-100%);
+        transition: transform 0.25s ease;
+      }
       .sidebar.open { transform: translateX(0); }
+
+      /* Main shifts to 0 margin */
       .main { margin-left: 0; }
-      .content { padding: 1rem; }
-      .topbar { padding: 0 1rem; }
+
+      /* Topbar */
+      .topbar { padding: 0 1rem; height: auto; min-height: 56px; flex-wrap: wrap; row-gap: 6px; padding-top: 8px; padding-bottom: 8px; }
       .topbar h1 { font-size: 14px; }
-      .stats-grid { grid-template-columns: 1fr; gap: 8px; }
-      .card-header { flex-direction: column; align-items: flex-start; gap: 8px; }
-      .search-input { width: 100%; max-width: 200px; }
-      .btn { font-size: 12px; padding: 6px 10px; }
-      .btn-sm { font-size: 11px; padding: 4px 8px; }
-      .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-      table { min-width: 600px; }
+      .topbar-right { width: 100%; justify-content: flex-end; }
+      .hamburger { display: flex; align-items: center; justify-content: center; margin-right: 4px; }
+
+      /* Content */
+      .content { padding: 1rem; }
+
+      /* Stats */
+      .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+
+      /* Cards */
+      .card-header { flex-direction: column; align-items: flex-start; }
+
+      /* Search */
+      .search-input { width: 100%; max-width: none; }
+
+      /* Buttons */
+      .btn { font-size: 12px; padding: 7px 11px; }
+      .btn-sm { font-size: 11px; padding: 5px 9px; }
+
+      /* Tables always scroll */
+      table { min-width: 560px; }
+
+      /* Forms */
       .form-grid { grid-template-columns: 1fr; }
-      .modal { width: 90vw; max-width: 400px; }
+      .modal { padding: 1.25rem; }
+
+      /* Tx items */
       .tx-item { flex-direction: column; align-items: flex-start; gap: 4px; }
-      .tx-info { flex-direction: column; align-items: flex-start; }
-      .topbar-right { flex-wrap: wrap; gap: 8px; }
-      .hamburger { display: block; background: none; border: none; cursor: pointer; padding: 8px; margin-right: 8px; }
-      .hamburger svg { width: 20px; height: 20px; }
+      .tx-info { flex-direction: row; }
+
+      /* Tx filters full width */
+      .tx-filters { width: 100%; }
+      .tx-filters select,
+      .tx-filters input { flex: 1 1 130px; min-width: 0; }
     }
-    .hamburger { display: none; }
   </style>
 </head>
 <body>
 <div class="layout">
 
+  <!-- Sidebar backdrop (mobile only) -->
+  <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
+
   <!-- Sidebar -->
-  <nav class="sidebar">
+  <nav class="sidebar" id="sidebar">
     <div class="sidebar-logo">
       <div class="logo-icon">
         <svg viewBox="0 0 24 24"><rect x="2" y="3" width="20" height="6" rx="1"/><rect x="2" y="13" width="20" height="6" rx="1"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="16" x2="6.01" y2="16"/></svg>
@@ -228,7 +287,7 @@
   <!-- Main -->
   <div class="main">
     <div class="topbar">
-      <button class="hamburger" onclick="toggleSidebar()">
+      <button class="hamburger" onclick="toggleSidebar()" aria-label="Open menu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <line x1="3" y1="12" x2="21" y2="12"/>
           <line x1="3" y1="6" x2="21" y2="6"/>
@@ -280,8 +339,8 @@
         <div class="card">
           <div class="card-header">
             <span class="card-title">All products</span>
-            <div style="display:flex;gap:8px;align-items:center">
-              <input class="search-input" id="search" placeholder="Search products..." oninput="renderInventory()">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%">
+              <input class="search-input" id="search" placeholder="Search products..." oninput="renderInventory()" style="flex:1;min-width:140px;">
               <button class="btn btn-primary btn-sm" onclick="openAddModal()">+ Add product</button>
             </div>
           </div>
@@ -299,17 +358,15 @@
         <div class="card">
           <div class="card-header">
             <span class="card-title">Transaction log</span>
-            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+            <div class="tx-filters">
               <select class="chart-select" id="tx-filter" onchange="renderTxLog()">
                 <option value="all">All types</option>
                 <option value="out">Sales</option>
                 <option value="in">Restocks</option>
               </select>
-              <input id="tx-search" class="search-input" placeholder="Product name..." oninput="markTxFiltersChanged(); renderTxLog()" style="min-width:160px;padding:7px 10px;border:0.5px solid var(--border-md);border-radius:var(--radius-md);background:var(--bg-primary);color:var(--text-primary);">
-              <select id="tx-category" onchange="markTxFiltersChanged(); renderTxLog()" style="padding:7px 10px;border:0.5px solid var(--border-md);border-radius:var(--radius-md);background:var(--bg-primary);color:var(--text-primary);">
-                <option value="">All categories</option>
-              </select>
-              <input id="tx-date" type="date" onchange="markTxFiltersChanged(); renderTxLog()" style="padding:7px 10px;border:0.5px solid var(--border-md);border-radius:var(--radius-md);background:var(--bg-primary);color:var(--text-primary);">
+              <input id="tx-search" class="search-input" type="text" placeholder="Product name..." oninput="markTxFiltersChanged(); renderTxLog()" style="width:auto;">
+              <select id="tx-category" onchange="markTxFiltersChanged(); renderTxLog()"></select>
+              <input id="tx-date" type="date" onchange="markTxFiltersChanged(); renderTxLog()">
               <button class="btn btn-sm btn-primary" onclick="exportTx('xlsx')">Export XLSX</button>
               <button class="btn btn-sm btn-primary" onclick="exportTx('pdf')">Export PDF</button>
               <button id="tx-clear-btn" class="btn btn-sm btn-danger" onclick="clearTransactions()" disabled title="Export first to enable clear">Clear</button>
@@ -450,7 +507,8 @@ let incomeChartObj = null, catChartObj = null, revenueChartObj = null, topChartO
 const pageTitles = { dashboard: 'Dashboard', inventory: 'Inventory', transactions: 'Transactions', reports: 'Analytics' };
 
 function toggleSidebar() {
-  document.querySelector('.sidebar').classList.toggle('open');
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-backdrop').classList.toggle('open');
 }
 
 function showPage(name, btn) {
@@ -459,6 +517,9 @@ function showPage(name, btn) {
   document.getElementById('page-' + name).classList.add('active');
   if (btn) btn.classList.add('active');
   document.getElementById('page-title').textContent = pageTitles[name];
+  // Close sidebar on mobile after navigation
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-backdrop').classList.remove('open');
   if (name === 'dashboard') { setTimeout(() => { renderIncomeChart(); renderCatChart(); }, 60); }
   if (name === 'reports') { setTimeout(() => { renderReportCharts(); }, 60); }
 }
@@ -559,10 +620,12 @@ function renderInventory() {
       <td>₱${p.sell.toLocaleString()}</td>
       <td><span style="color:${margin >= 30 ? '#1D9E75' : margin >= 15 ? '#BA7517' : '#D85A30'}">${margin}%</span></td>
       <td><span class="badge ${cls}">${label}</span></td>
-      <td style="white-space:nowrap;display:flex;gap:4px;flex-direction:column">
-        <button class="btn btn-sm" onclick="quickRestock(${p.id})">Restock</button>
-        <button class="btn btn-sm btn-secondary" onclick="openEditModal(${p.id})">Edit</button>
-        <button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})">Delete</button>
+      <td>
+        <div style="display:flex;gap:4px;flex-direction:column;min-width:76px">
+          <button class="btn btn-sm" onclick="quickRestock(${p.id})">Restock</button>
+          <button class="btn btn-sm" onclick="openEditModal(${p.id})">Edit</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})">Delete</button>
+        </div>
       </td>
     </tr>`;
   }).join('') : `<tr><td colspan="8"><div class="empty">No products found</div></td></tr>`;
@@ -792,12 +855,7 @@ function saveProduct() {
   if (editingProductId) {
     const p = products.find(x => x.id === editingProductId);
     if (!p) return;
-    p.name = name;
-    p.category = category;
-    p.stock = stock;
-    p.low = low;
-    p.cost = cost;
-    p.sell = sell;
+    p.name = name; p.category = category; p.stock = stock; p.low = low; p.cost = cost; p.sell = sell;
     transactions.forEach(t => { if (t.productId === p.id) t.productName = name; });
     editingProductId = null;
   } else {
