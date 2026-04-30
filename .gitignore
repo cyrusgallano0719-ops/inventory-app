@@ -1,0 +1,13 @@
+node_modules/
+.env
+.env.local
+.env.*.local
+backend/inventory.db
+backend/inventory.db-shm
+backend/inventory.db-wal
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*.log
