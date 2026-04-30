@@ -1,6 +1,6 @@
 {
   "name": "inventory-app",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "A single-page inventory management app with daily income/outcome charts, stock monitoring, and analytics.",
   "main": "index.js",
   "scripts": {
