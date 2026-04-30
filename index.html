@@ -168,11 +168,28 @@
       .grid-2 { grid-template-columns: 1fr; }
     }
     @media (max-width: 640px) {
-      .sidebar { display: none; }
+      .sidebar { display: none; position: fixed; top: 0; left: 0; height: 100vh; z-index: 10; transform: translateX(-100%); transition: transform 0.3s ease; }
+      .sidebar.open { transform: translateX(0); }
       .main { margin-left: 0; }
       .content { padding: 1rem; }
-      .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+      .topbar { padding: 0 1rem; }
+      .topbar h1 { font-size: 14px; }
+      .stats-grid { grid-template-columns: 1fr; gap: 8px; }
+      .card-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .search-input { width: 100%; max-width: 200px; }
+      .btn { font-size: 12px; padding: 6px 10px; }
+      .btn-sm { font-size: 11px; padding: 4px 8px; }
+      .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      table { min-width: 600px; }
+      .form-grid { grid-template-columns: 1fr; }
+      .modal { width: 90vw; max-width: 400px; }
+      .tx-item { flex-direction: column; align-items: flex-start; gap: 4px; }
+      .tx-info { flex-direction: column; align-items: flex-start; }
+      .hamburger { display: block; background: none; border: none; cursor: pointer; padding: 8px; margin-right: 8px; }
+      .hamburger svg { width: 20px; height: 20px; }
     }
+    .hamburger { display: none; }
+    .hamburger { display: none; }
   </style>
 </head>
 <body>
@@ -211,6 +228,13 @@
   <!-- Main -->
   <div class="main">
     <div class="topbar">
+      <button class="hamburger" onclick="toggleSidebar()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="3" y1="12" x2="21" y2="12"/>
+          <line x1="3" y1="6" x2="21" y2="6"/>
+          <line x1="3" y1="18" x2="21" y2="18"/>
+        </svg>
+      </button>
       <h1 id="page-title">Dashboard</h1>
       <div class="topbar-right">
         <button class="btn btn-sm" onclick="openTxModal()">+ Transaction</button>
@@ -425,6 +449,10 @@ let incomeChartObj = null, catChartObj = null, revenueChartObj = null, topChartO
 /* ─── Navigation ─── */
 const pageTitles = { dashboard: 'Dashboard', inventory: 'Inventory', transactions: 'Transactions', reports: 'Analytics' };
 
+function toggleSidebar() {
+  document.querySelector('.sidebar').classList.toggle('open');
+}
+
 function showPage(name, btn) {
   document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
@@ -531,7 +559,7 @@ function renderInventory() {
       <td>₱${p.sell.toLocaleString()}</td>
       <td><span style="color:${margin >= 30 ? '#1D9E75' : margin >= 15 ? '#BA7517' : '#D85A30'}">${margin}%</span></td>
       <td><span class="badge ${cls}">${label}</span></td>
-      <td style="white-space:nowrap;display:flex;gap:4px">
+      <td style="white-space:nowrap;display:flex;gap:4px;flex-direction:column">
         <button class="btn btn-sm" onclick="quickRestock(${p.id})">Restock</button>
         <button class="btn btn-sm btn-secondary" onclick="openEditModal(${p.id})">Edit</button>
         <button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})">Delete</button>
