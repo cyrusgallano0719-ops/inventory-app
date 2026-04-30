@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Inventory System</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -261,7 +263,7 @@
           </div>
           <div class="table-wrap">
             <table>
-              <thead><tr><th>Product</th><th>Category</th><th>Stock</th><th>Cost (₱)</th><th>Sell (₱)</th><th>Margin</th><th>Status</th><th></th></tr></thead>
+              <thead><tr><th>Product</th><th>Category</th><th>Stock</th><th>Cost (₱)</th><th>Sell (₱)</th><th>Margin</th><th>Status</th><th>Actions</th></tr></thead>
               <tbody id="inv-tbody"></tbody>
             </table>
           </div>
@@ -273,12 +275,20 @@
         <div class="card">
           <div class="card-header">
             <span class="card-title">Transaction log</span>
-            <div style="display:flex;gap:8px">
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
               <select class="chart-select" id="tx-filter" onchange="renderTxLog()">
                 <option value="all">All types</option>
                 <option value="out">Sales</option>
                 <option value="in">Restocks</option>
               </select>
+              <input id="tx-search" class="search-input" placeholder="Product name..." oninput="markTxFiltersChanged(); renderTxLog()" style="min-width:160px;padding:7px 10px;border:0.5px solid var(--border-md);border-radius:var(--radius-md);background:var(--bg-primary);color:var(--text-primary);">
+              <select id="tx-category" onchange="markTxFiltersChanged(); renderTxLog()" style="padding:7px 10px;border:0.5px solid var(--border-md);border-radius:var(--radius-md);background:var(--bg-primary);color:var(--text-primary);">
+                <option value="">All categories</option>
+              </select>
+              <input id="tx-date" type="date" onchange="markTxFiltersChanged(); renderTxLog()" style="padding:7px 10px;border:0.5px solid var(--border-md);border-radius:var(--radius-md);background:var(--bg-primary);color:var(--text-primary);">
+              <button class="btn btn-sm btn-primary" onclick="exportTx('xlsx')">Export XLSX</button>
+              <button class="btn btn-sm btn-primary" onclick="exportTx('pdf')">Export PDF</button>
+              <button id="tx-clear-btn" class="btn btn-sm btn-danger" onclick="clearTransactions()" disabled title="Export first to enable clear">Clear</button>
               <button class="btn btn-primary btn-sm" onclick="openTxModal()">+ Record</button>
             </div>
           </div>
@@ -378,6 +388,8 @@ let products = [
   { id:6, name:'Mineral Water 1L', category:'Food & Beverage', stock:200, low:30, cost:20, sell:35 }
 ];
 let nextId = 7;
+let editingProductId = null;
+let txExported = false;
 
 function genDates(n) {
   const dates = [];
@@ -519,15 +531,62 @@ function renderInventory() {
       <td>₱${p.sell.toLocaleString()}</td>
       <td><span style="color:${margin >= 30 ? '#1D9E75' : margin >= 15 ? '#BA7517' : '#D85A30'}">${margin}%</span></td>
       <td><span class="badge ${cls}">${label}</span></td>
-      <td><button class="btn btn-sm" onclick="quickRestock(${p.id})">Restock</button></td>
+      <td style="white-space:nowrap;display:flex;gap:4px">
+        <button class="btn btn-sm" onclick="quickRestock(${p.id})">Restock</button>
+        <button class="btn btn-sm btn-secondary" onclick="openEditModal(${p.id})">Edit</button>
+        <button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})">Delete</button>
+      </td>
     </tr>`;
   }).join('') : `<tr><td colspan="8"><div class="empty">No products found</div></td></tr>`;
 }
 
 /* ─── Transaction Log ─── */
+function getTransactionCategory(tx) {
+  const p = products.find(x => x.id === tx.productId);
+  return p ? p.category : '';
+}
+
+function populateTxCategoryFilter() {
+  const options = [...new Set(products.map(p => p.category))].sort();
+  document.getElementById('tx-category').innerHTML = `
+    <option value="">All categories</option>
+    ${options.map(c => `<option value="${c}">${c}</option>`).join('')}
+  `;
+}
+
+function getFilteredTransactions() {
+  const type = document.getElementById('tx-filter').value;
+  const name = (document.getElementById('tx-search').value || '').trim().toLowerCase();
+  const category = document.getElementById('tx-category').value;
+  const date = document.getElementById('tx-date').value;
+
+  return transactions.filter(t => {
+    if (type !== 'all' && t.type !== type) return false;
+    if (name && !t.productName.toLowerCase().includes(name)) return false;
+    if (category && getTransactionCategory(t) !== category) return false;
+    if (date && t.date !== date) return false;
+    return true;
+  }).sort((a, b) => b.id - a.id).slice(0, 100);
+}
+
+function markTxFiltersChanged() {
+  if (txExported) {
+    txExported = false;
+    updateClearButtonState();
+  }
+}
+
+function updateClearButtonState() {
+  const button = document.getElementById('tx-clear-btn');
+  if (button) button.disabled = !txExported;
+}
+
 function renderTxLog() {
-  const f = document.getElementById('tx-filter').value;
-  const filtered = [...transactions].filter(t => f === 'all' || t.type === f).sort((a, b) => b.id - a.id).slice(0, 100);
+  const filtered = getFilteredTransactions();
+  if (!filtered.length) {
+    document.getElementById('tx-tbody').innerHTML = `<tr><td colspan="7"><div class="empty">No transactions found</div></td></tr>`;
+    return;
+  }
   document.getElementById('tx-tbody').innerHTML = filtered.map(t => `<tr>
     <td style="color:var(--text-secondary)">${t.date}</td>
     <td style="font-weight:500">${t.productName}</td>
@@ -537,6 +596,80 @@ function renderTxLog() {
     <td style="font-weight:500">₱${(t.qty * t.price).toLocaleString()}</td>
     <td style="color:var(--text-secondary)">${t.note || '-'}</td>
   </tr>`).join('');
+}
+
+function exportTx(format) {
+  const rows = getFilteredTransactions();
+  if (!rows.length) {
+    alert('No transactions match the current filters. Adjust filters before exporting.');
+    return;
+  }
+
+  const exportRows = rows.map(t => ({
+    date: t.date,
+    product: t.productName,
+    category: getTransactionCategory(t),
+    type: t.type === 'out' ? 'Sale' : 'Restock',
+    qty: t.qty,
+    price: t.price,
+    total: t.qty * t.price,
+    note: t.note || '-'
+  }));
+
+  const filename = `transactions-${new Date().toISOString().split('T')[0]}`;
+
+  if (format === 'xlsx') {
+    const sheetData = [
+      ['Date', 'Product', 'Category', 'Type', 'Qty', 'Unit price', 'Total', 'Note'],
+      ...exportRows.map(r => [r.date, r.product, r.category, r.type, r.qty, r.price, r.total, r.note])
+    ];
+    const ws = XLSX.utils.aoa_to_sheet(sheetData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Transactions');
+    XLSX.writeFile(wb, `${filename}.xlsx`);
+  } else if (format === 'pdf') {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+    doc.setFontSize(12);
+    doc.text('Transaction Export', 40, 40);
+    let y = 65;
+    const rowHeight = 14;
+    const header = ['Date', 'Product', 'Category', 'Type', 'Qty', 'Unit price', 'Total', 'Note'];
+    doc.setFontSize(10);
+    doc.text(header.join(' | '), 40, y);
+    y += rowHeight;
+    exportRows.forEach(r => {
+      const line = [r.date, r.product, r.category, r.type, r.qty, `₱${r.price.toLocaleString()}`, `₱${r.total.toLocaleString()}`, r.note].join(' | ');
+      const split = doc.splitTextToSize(line, 520);
+      if (y + split.length * rowHeight > 740) { doc.addPage(); y = 40; }
+      doc.text(split, 40, y);
+      y += split.length * rowHeight;
+    });
+    doc.save(`${filename}.pdf`);
+  }
+
+  txExported = true;
+  updateClearButtonState();
+  alert('Export complete. Clear is now enabled for the current filtered transactions.');
+}
+
+function clearTransactions() {
+  if (!txExported) return;
+  const filtered = getFilteredTransactions();
+  if (!filtered.length) {
+    alert('No transactions currently match the filters. Adjust filters and try again.');
+    return;
+  }
+  if (!confirm(`Clear ${filtered.length} transaction(s)? This action cannot be undone.`)) return;
+  const filteredIds = new Set(filtered.map(t => t.id));
+  transactions = transactions.filter(t => !filteredIds.has(t.id));
+  txExported = false;
+  updateClearButtonState();
+  renderTxLog();
+  renderStats();
+  renderIncomeChart();
+  renderReportCharts();
+  alert('Transactions cleared successfully.');
 }
 
 /* ─── Report Charts ─── */
@@ -588,9 +721,34 @@ function renderReportCharts() {
 
 /* ─── Modals ─── */
 function openAddModal() {
+  editingProductId = null;
   ['f-name', 'f-stock', 'f-low', 'f-cost', 'f-sell'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('f-cat').value = 'Electronics';
   document.getElementById('modal-title').textContent = 'Add product';
   document.getElementById('add-modal').classList.add('open');
+}
+
+function openEditModal(id) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  editingProductId = id;
+  document.getElementById('f-name').value = p.name;
+  document.getElementById('f-cat').value = p.category;
+  document.getElementById('f-stock').value = p.stock;
+  document.getElementById('f-low').value = p.low;
+  document.getElementById('f-cost').value = p.cost;
+  document.getElementById('f-sell').value = p.sell;
+  document.getElementById('modal-title').textContent = 'Edit product';
+  document.getElementById('add-modal').classList.add('open');
+}
+
+function deleteProduct(id) {
+  const p = products.find(x => x.id === id);
+  if (!p) return;
+  if (!confirm(`Delete product "${p.name}"? This cannot be undone.`)) return;
+  products = products.filter(x => x.id !== id);
+  if (editingProductId === id) editingProductId = null;
+  renderInventory(); renderStats(); renderCatChart(); renderTxLog();
 }
 
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
@@ -598,16 +756,27 @@ function closeModal(id) { document.getElementById(id).classList.remove('open'); 
 function saveProduct() {
   const name = document.getElementById('f-name').value.trim();
   if (!name) { document.getElementById('f-name').focus(); return; }
-  products.push({
-    id: nextId++, name,
-    category: document.getElementById('f-cat').value,
-    stock: parseInt(document.getElementById('f-stock').value) || 0,
-    low: parseInt(document.getElementById('f-low').value) || 5,
-    cost: parseFloat(document.getElementById('f-cost').value) || 0,
-    sell: parseFloat(document.getElementById('f-sell').value) || 0
-  });
+  const category = document.getElementById('f-cat').value;
+  const stock = parseInt(document.getElementById('f-stock').value) || 0;
+  const low = parseInt(document.getElementById('f-low').value) || 5;
+  const cost = parseFloat(document.getElementById('f-cost').value) || 0;
+  const sell = parseFloat(document.getElementById('f-sell').value) || 0;
+  if (editingProductId) {
+    const p = products.find(x => x.id === editingProductId);
+    if (!p) return;
+    p.name = name;
+    p.category = category;
+    p.stock = stock;
+    p.low = low;
+    p.cost = cost;
+    p.sell = sell;
+    transactions.forEach(t => { if (t.productId === p.id) t.productName = name; });
+    editingProductId = null;
+  } else {
+    products.push({ id: nextId++, name, category, stock, low, cost, sell });
+  }
   closeModal('add-modal');
-  renderInventory(); renderStats(); renderCatChart();
+  renderInventory(); renderStats(); renderCatChart(); renderTxLog(); populateTxCategoryFilter();
 }
 
 function quickRestock(id) {
@@ -651,6 +820,8 @@ document.querySelectorAll('.overlay').forEach(el => el.addEventListener('click',
 renderStats();
 renderRecentTx();
 renderInventory();
+populateTxCategoryFilter();
+updateClearButtonState();
 renderTxLog();
 setTimeout(() => { renderIncomeChart(); renderCatChart(); }, 100);
 </script>
