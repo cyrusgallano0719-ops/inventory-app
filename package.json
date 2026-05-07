@@ -7,13 +7,28 @@
     "start": "http-server . -p 3000",
     "backend": "cd backend && npm start",
     "backend:dev": "cd backend && npm run dev",
+    "launch": "node launcher.js",
+    "build:exe": "npx @yao-pkg/pkg launcher.js --targets node20-win-x64 --output inventory-app.exe",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "pkg": {
+    "assets": [
+      "backend/**/*",
+      "*.html",
+      "*.css",
+      "*.js",
+      "assets/**/*"
+    ],
+    "scripts": [
+      "backend/**/*.js"
+    ]
+  },
   "devDependencies": {
+    "@yao-pkg/pkg": "^6.19.0",
     "http-server": "^14.1.1"
   }
 }

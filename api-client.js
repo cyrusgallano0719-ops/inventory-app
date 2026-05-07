@@ -1,14 +1,21 @@
 // API Client Helper
-const API_BASE = window.location.hostname === 'localhost' 
+const API_BASE = ['localhost', '127.0.0.1', ''].includes(window.location.hostname)
   ? 'http://localhost:5000/api'
   : '/api';
 
 let authToken = localStorage.getItem('authToken');
+let authRole = localStorage.getItem('accountType') || 'user';
 
 function setAuthToken(token) {
   authToken = token;
   if (token) localStorage.setItem('authToken', token);
   else localStorage.removeItem('authToken');
+}
+
+function setAuthRole(role) {
+  authRole = role || 'user';
+  if (role) localStorage.setItem('accountType', role);
+  else localStorage.removeItem('accountType');
 }
 
 function getAuthHeaders() {
@@ -18,13 +25,23 @@ function getAuthHeaders() {
 }
 
 // Auth API calls
-async function apiSignup(username, password, email) {
+async function parseErrorResponse(response) {
+  const text = await response.text();
+  try {
+    const json = JSON.parse(text);
+    return json.error || json.message || text;
+  } catch {
+    return text || response.statusText;
+  }
+}
+
+async function apiSignup(username, password, email, accountType) {
   const response = await fetch(`${API_BASE}/auth/signup`, {
     method: 'POST',
     headers: getAuthHeaders(),
-    body: JSON.stringify({ username, password, email })
+    body: JSON.stringify({ username, password, account_type: accountType })
   });
-  if (!response.ok) throw new Error(await response.text());
+  if (!response.ok) throw new Error(await parseErrorResponse(response));
   return await response.json();
 }
 
@@ -34,9 +51,10 @@ async function apiLogin(username, password) {
     headers: getAuthHeaders(),
     body: JSON.stringify({ username, password })
   });
-  if (!response.ok) throw new Error(await response.text());
+  if (!response.ok) throw new Error(await parseErrorResponse(response));
   const data = await response.json();
   setAuthToken(data.token);
+  setAuthRole(data.accountType);
   return data;
 }
 
@@ -107,6 +125,32 @@ async function apiDeleteTransactions(filters) {
   return await response.json();
 }
 
+async function apiGetApprovals() {
+  const response = await fetch(`${API_BASE}/account-approvals`, {
+    headers: getAuthHeaders()
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return await response.json();
+}
+
+async function apiApproveAccount(id) {
+  const response = await fetch(`${API_BASE}/account-approvals/${id}/approve`, {
+    method: 'POST',
+    headers: getAuthHeaders()
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return await response.json();
+}
+
+async function apiRejectAccount(id) {
+  const response = await fetch(`${API_BASE}/account-approvals/${id}/reject`, {
+    method: 'POST',
+    headers: getAuthHeaders()
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return await response.json();
+}
+
 async function apiHealthCheck() {
   try {
     const response = await fetch(`${API_BASE.replace('/api', '')}/api/health`);
@@ -114,4 +158,42 @@ async function apiHealthCheck() {
   } catch {
     return false;
   }
+}
+
+// Category API calls
+async function apiGetCategories() {
+  const response = await fetch(`${API_BASE}/categories`, {
+    headers: getAuthHeaders()
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return await response.json();
+}
+
+async function apiAddCategory(category) {
+  const response = await fetch(`${API_BASE}/categories`, {
+    method: 'POST',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(category)
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return await response.json();
+}
+
+async function apiUpdateCategory(id, category) {
+  const response = await fetch(`${API_BASE}/categories/${id}`, {
+    method: 'PUT',
+    headers: getAuthHeaders(),
+    body: JSON.stringify(category)
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return await response.json();
+}
+
+async function apiDeleteCategory(id) {
+  const response = await fetch(`${API_BASE}/categories/${id}`, {
+    method: 'DELETE',
+    headers: getAuthHeaders()
+  });
+  if (!response.ok) throw new Error(await response.text());
+  return await response.json();
 }

@@ -39,6 +39,11 @@ DELETE /api/products/:id         - Delete product
 GET    /api/transactions         - List transactions
 POST   /api/transactions         - Record transaction
 DELETE /api/transactions         - Clear filtered transactions
+
+GET    /api/categories           - List categories
+POST   /api/categories           - Add category (master_admin only)
+PUT    /api/categories/:id       - Update category (master_admin only)
+DELETE /api/categories/:id       - Delete category (master_admin only)
 ```
 
 ## Migration Steps

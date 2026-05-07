@@ -7,6 +7,7 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="api-client.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -121,6 +122,31 @@
     .btn-danger { background: var(--red-bg); color: var(--red-text); border-color: var(--red-text); }
     .btn-danger:hover { background: var(--red); color: #fff; border-color: var(--red); }
     .btn-danger:disabled { opacity: 0.45; cursor: not-allowed; pointer-events: none; }
+
+    @keyframes bgShift {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .auth-screen {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: linear-gradient(-45deg, #185FA5, #1D9E75, #D85A30, #185FA5);
+      background-size: 400% 400%;
+      animation: bgShift 8s ease infinite;
+      z-index: 300;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+    }
+    .auth-screen.open { display: flex; }
+    .auth-panel { width: 100%; max-width: 420px; padding: 1.75rem; border-radius: var(--radius-lg); }
+    .auth-panel h2 { margin-bottom: 0.85rem; }
+    .auth-error { min-height: 20px; font-size: 12px; color: var(--red-text); margin-top: 0.5rem; }
+    .auth-note { margin-top: 1rem; font-size: 12px; color: var(--text-secondary); }
+    .auth-toggle { font-size: 12px; background: none; border: none; color: var(--blue); cursor: pointer; text-decoration: underline; padding: 0; }
 
     /* Table */
     .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -250,6 +276,27 @@
 </head>
 <body>
 <div class="layout">
+  <div id="auth-screen" class="auth-screen open">
+    <div class="auth-panel card">
+      <h2 id="auth-title">Sign in</h2>
+      <div class="form-row"><label>Username</label><input id="auth-username" autocomplete="username"></div>
+      <div id="auth-role-row" class="form-row" style="display:none;"><label>Account type</label>
+        <select id="auth-account-type">
+          <option value="user">User</option>
+          <option value="cashier">Cashier</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+
+      <div class="form-row"><label>Password</label><input id="auth-password" type="password" autocomplete="current-password"></div>
+      <div class="form-actions" style="justify-content:space-between;gap:8px;flex-wrap:wrap;">
+        <button id="auth-toggle" class="btn auth-toggle" type="button" onclick="toggleAuthMode()">New user? Create account</button>
+        <button class="btn btn-primary" id="auth-action" type="button" onclick="submitAuth()">Sign in</button>
+      </div>
+      <div id="auth-error" class="auth-error"></div>
+      <div class="auth-note">Your data is stored in the backend SQLite database.</div>
+    </div>
+  </div>
 
   <!-- Sidebar backdrop (mobile only) -->
   <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="toggleSidebar()"></div>
@@ -264,20 +311,28 @@
     </div>
     <div class="nav-section">Menu</div>
     <div class="sidebar-nav">
-      <button class="nav-item active" onclick="showPage('dashboard', this)">
+      <button id="nav-dashboard" class="nav-item active" onclick="showPage('dashboard', this)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
         Dashboard
       </button>
-      <button class="nav-item" onclick="showPage('inventory', this)">
+      <button id="nav-inventory" class="nav-item" onclick="showPage('inventory', this)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/></svg>
         Inventory
       </button>
-      <button class="nav-item" onclick="showPage('transactions', this)">
+      <button id="nav-transactions" class="nav-item" onclick="showPage('transactions', this)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
         Transactions
       </button>
+      <button id="nav-approvals" class="nav-item" onclick="showPage('approvals', this)" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/></svg>
+        Account Approvals
+      </button>
+      <button id="nav-control" class="nav-item" onclick="showPage('control', this)" style="display:none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/></svg>
+        Control Panel
+      </button>
       <div class="nav-section">Reports</div>
-      <button class="nav-item" onclick="showPage('reports', this)">
+      <button id="nav-reports" class="nav-item" onclick="showPage('reports', this)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         Analytics
       </button>
@@ -296,8 +351,10 @@
       </button>
       <h1 id="page-title">Dashboard</h1>
       <div class="topbar-right">
-        <button class="btn btn-sm" onclick="openTxModal()">+ Transaction</button>
-        <button class="btn btn-sm btn-primary" onclick="openAddModal()">+ Add Product</button>
+        <span id="user-label" style="color:var(--text-secondary);font-size:13px;display:none;"></span>
+        <button id="logout-btn" class="btn btn-sm" style="display:none;" onclick="logout()">Logout</button>
+        <button id="open-tx-btn" class="btn btn-sm" onclick="openTxModal()">+ Transaction</button>
+        <button id="add-product-btn" class="btn btn-sm btn-primary" onclick="openAddModal()">+ Add Product</button>
       </div>
     </div>
 
@@ -341,7 +398,7 @@
             <span class="card-title">All products</span>
             <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;width:100%">
               <input class="search-input" id="search" placeholder="Search products..." oninput="renderInventory()" style="flex:1;min-width:140px;">
-              <button class="btn btn-primary btn-sm" onclick="openAddModal()">+ Add product</button>
+              <button id="inventory-add-btn" class="btn btn-primary btn-sm" onclick="openAddModal()">+ Add product</button>
             </div>
           </div>
           <div class="table-wrap">
@@ -406,6 +463,48 @@
         </div>
       </div>
 
+      <!-- ACCOUNT APPROVALS -->
+      <div id="page-approvals" class="page">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Account approvals</span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr><th>Full Name</th><th>Username</th><th>Account Type</th><th>Date Registered</th><th>Actions</th></tr>
+              </thead>
+              <tbody id="approvals-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- CONTROL PANEL -->
+      <div id="page-control" class="page">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Control Panel</span>
+            <span style="color:var(--text-secondary);font-size:12px;">Super Admin: Manage system settings and dropdowns</span>
+          </div>
+        </div>
+
+        <!-- Categories Management -->
+        <div class="card" style="margin-top:1rem">
+          <div class="card-header">
+            <span class="card-title">Product Categories</span>
+            <button class="btn btn-primary btn-sm" onclick="openAddCategoryModal()">+ Add Category</button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead><tr><th>Category Name</th><th>Color</th><th>Created</th><th>Actions</th></tr></thead>
+              <tbody id="categories-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+      </div>
+
     </div>
   </div>
 </div>
@@ -416,9 +515,7 @@
     <h2 id="modal-title">Add product</h2>
     <div class="form-row"><label>Product name</label><input id="f-name" placeholder="e.g. Wireless Keyboard"></div>
     <div class="form-row"><label>Category</label>
-      <select id="f-cat">
-        <option>Electronics</option><option>Food &amp; Beverage</option><option>Clothing</option><option>Tools</option><option>Other</option>
-      </select>
+      <select id="f-cat"></select>
     </div>
     <div class="form-grid">
       <div class="form-row"><label>Initial stock</label><input id="f-stock" type="number" min="0" placeholder="0"></div>
@@ -458,19 +555,274 @@
   </div>
 </div>
 
+<!-- Category Modal -->
+<div class="overlay" id="category-modal">
+  <div class="modal">
+    <h2 id="category-modal-title">Add Category</h2>
+    <div class="form-row"><label>Category Name</label><input id="f-cat-name" placeholder="e.g. Electronics"></div>
+    <div class="form-row"><label>Color (hex)</label>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <input id="f-cat-color" type="color" style="width:50px;height:40px;padding:2px;border:0.5px solid var(--border-md);border-radius:var(--radius-md);cursor:pointer;">
+        <input id="f-cat-color-hex" type="text" placeholder="#185FA5" style="flex:1;">
+      </div>
+    </div>
+    <div class="form-actions">
+      <button class="btn" onclick="closeModal('category-modal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCategory()">Save Category</button>
+    </div>
+  </div>
+</div>
+
 <script>
-/* ─── Data ─── */
-let products = [
-  { id:1, name:'USB-C Hub', category:'Electronics', stock:42, low:10, cost:350, sell:650 },
-  { id:2, name:'Wireless Mouse', category:'Electronics', stock:8, low:10, cost:250, sell:480 },
-  { id:3, name:'Coffee Beans 250g', category:'Food & Beverage', stock:120, low:20, cost:80, sell:150 },
-  { id:4, name:'Cotton T-Shirt', category:'Clothing', stock:3, low:5, cost:200, sell:380 },
-  { id:5, name:'Screwdriver Set', category:'Tools', stock:25, low:5, cost:180, sell:320 },
-  { id:6, name:'Mineral Water 1L', category:'Food & Beverage', stock:200, low:30, cost:20, sell:35 }
-];
-let nextId = 7;
+let products = [];
+let transactions = [];
 let editingProductId = null;
 let txExported = false;
+let authMode = 'login';
+
+const catColors = { 'Electronics': '#185FA5', 'Food & Beverage': '#1D9E75', 'Clothing': '#D85A30', 'Tools': '#BA7517', 'Other': '#7F77DD' };
+let incomeChartObj = null, catChartObj = null, revenueChartObj = null, topChartObj = null;
+
+const ROLE_PERMISSIONS = {
+  user: {
+    viewInventory: true,
+    viewTransactions: false,
+    viewDashboard: false,
+    viewReports: false,
+    viewApprovals: false,
+    viewControl: false,
+    addProducts: false,
+    editProducts: false,
+    deleteProducts: false,
+    doTransactions: false,
+    clearTransactions: false,
+    manageCategories: false
+  },
+  cashier: {
+    viewInventory: true,
+    viewTransactions: true,
+    viewDashboard: false,
+    viewReports: true,
+    viewApprovals: false,
+    viewControl: false,
+    addProducts: false,
+    editProducts: false,
+    deleteProducts: false,
+    doTransactions: true,
+    clearTransactions: false,
+    manageCategories: false
+  },
+  admin: {
+    viewInventory: true,
+    viewTransactions: true,
+    viewDashboard: true,
+    viewReports: true,
+    viewApprovals: false,
+    viewControl: false,
+    addProducts: true,
+    editProducts: true,
+    deleteProducts: true,
+    doTransactions: true,
+    clearTransactions: true,
+    manageCategories: false
+  },
+  master_admin: {
+    viewInventory: true,
+    viewTransactions: true,
+    viewDashboard: true,
+    viewReports: true,
+    viewApprovals: true,
+    viewControl: true,
+    addProducts: true,
+    editProducts: true,
+    deleteProducts: true,
+    doTransactions: true,
+    clearTransactions: true,
+    manageCategories: true
+  }
+};
+
+const PAGE_PERMISSIONS = {
+  dashboard: 'viewDashboard',
+  inventory: 'viewInventory',
+  transactions: 'viewTransactions',
+  reports: 'viewReports',
+  approvals: 'viewApprovals',
+  control: 'viewControl'
+};
+
+const DEFAULT_PAGE_FOR_ROLE = {
+  user: 'inventory',
+  cashier: 'transactions',
+  admin: 'dashboard',
+  master_admin: 'dashboard'
+};
+
+const pageTitles = { dashboard: 'Dashboard', inventory: 'Inventory', transactions: 'Transactions', reports: 'Analytics', approvals: 'Account Approvals', control: 'Control Panel' };
+
+function hasPermission(permission) {
+  return ROLE_PERMISSIONS[authRole]?.[permission] || false;
+}
+
+function getDefaultPage() {
+  return DEFAULT_PAGE_FOR_ROLE[authRole] || 'inventory';
+}
+
+function renderRoleUI() {
+  document.getElementById('nav-dashboard').style.display = hasPermission('viewDashboard') ? 'flex' : 'none';
+  document.getElementById('nav-inventory').style.display = hasPermission('viewInventory') ? 'flex' : 'none';
+  document.getElementById('nav-transactions').style.display = hasPermission('viewTransactions') ? 'flex' : 'none';
+  document.getElementById('nav-reports').style.display = hasPermission('viewReports') ? 'flex' : 'none';
+  document.getElementById('nav-approvals').style.display = hasPermission('viewApprovals') ? 'flex' : 'none';
+  document.getElementById('nav-control').style.display = hasPermission('viewControl') ? 'flex' : 'none';
+  document.getElementById('open-tx-btn').style.display = hasPermission('doTransactions') ? 'inline-flex' : 'none';
+  document.getElementById('add-product-btn').style.display = hasPermission('addProducts') ? 'inline-flex' : 'none';
+  document.getElementById('inventory-add-btn').style.display = hasPermission('addProducts') ? 'inline-flex' : 'none';
+  const clearBtn = document.getElementById('tx-clear-btn');
+  if (clearBtn) {
+    clearBtn.style.display = hasPermission('clearTransactions') ? 'inline-flex' : 'none';
+    clearBtn.disabled = !hasPermission('clearTransactions');
+  }
+  renderInventory();
+}
+
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('open');
+  document.getElementById('sidebar-backdrop').classList.toggle('open');
+}
+
+function showPage(name, btn) {
+  const targetPage = hasPermission(PAGE_PERMISSIONS[name]) ? name : getDefaultPage();
+  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const pageEl = document.getElementById('page-' + targetPage);
+  if (!pageEl) return;
+  pageEl.classList.add('active');
+  if (btn) btn.classList.add('active');
+  document.getElementById('page-title').textContent = pageTitles[targetPage];
+  document.getElementById('sidebar').classList.remove('open');
+  document.getElementById('sidebar-backdrop').classList.remove('open');
+  if (targetPage === 'dashboard') { setTimeout(() => { renderIncomeChart(); renderCatChart(); }, 60); }
+  if (targetPage === 'reports') { setTimeout(() => { renderReportCharts(); }, 60); }
+  if (targetPage === 'approvals') { renderApprovalList(); }
+  if (targetPage === 'control') { renderCategoryList(); }
+}
+
+function showAuthScreen(mode, message = '') {
+  authMode = mode;
+  const authScreen = document.getElementById('auth-screen');
+  const authTitle = document.getElementById('auth-title');
+  const authAction = document.getElementById('auth-action');
+  const authToggle = document.getElementById('auth-toggle');
+
+  const authError = document.getElementById('auth-error');
+  const authUsername = document.getElementById('auth-username');
+
+  authScreen?.classList.add('open');
+  const authRoleRow = document.getElementById('auth-role-row');
+  if (authTitle) authTitle.textContent = mode === 'signup' ? 'Create account' : 'Sign in';
+  if (authAction) authAction.textContent = mode === 'signup' ? 'Sign up' : 'Sign in';
+  if (authToggle) authToggle.textContent = mode === 'signup' ? 'Already have an account? Sign in' : 'New user? Create account';
+  if (authRoleRow) authRoleRow.style.display = mode === 'signup' ? 'block' : 'none';
+
+  if (authError) authError.textContent = message;
+  authUsername?.focus();
+}
+
+function toggleAuthMode() {
+  showAuthScreen(authMode === 'signup' ? 'login' : 'signup');
+}
+
+async function submitAuth() {
+  const username = document.getElementById('auth-username').value.trim();
+  const password = document.getElementById('auth-password').value.trim();
+  if (!username || !password) {
+    document.getElementById('auth-error').textContent = 'Username and password are required.';
+    return;
+  }
+
+  try {
+    if (authMode === 'signup') {
+      const accountType = document.getElementById('auth-account-type').value;
+      await apiSignup(username, password, null, accountType);
+      showAuthScreen('login', 'Account created. Awaiting admin approval before you can sign in.');
+      return;
+    }
+
+    const data = await apiLogin(username, password);
+    localStorage.setItem('username', data.username || username);
+    localStorage.setItem('accountType', data.accountType || 'user');
+    authRole = data.accountType || 'user';
+    document.getElementById('auth-screen').classList.remove('open');
+    renderUserInfo();
+    renderRoleUI();
+    await loadData();
+    showPage(getDefaultPage());
+  } catch (err) {
+    document.getElementById('auth-error').textContent = err.message || 'Unable to sign in. Please try again.';
+  }
+}
+
+function logout() {
+  setAuthToken(null);
+  authRole = 'user';
+  setAuthRole(null);
+  localStorage.removeItem('username');
+  renderUserInfo();
+  renderRoleUI();
+  showAuthScreen('login');
+}
+
+async function initApp() {
+  renderUserInfo();
+  renderRoleUI();
+  if (!authToken) {
+    showAuthScreen('login');
+    return;
+  }
+  try {
+    await loadData();
+    document.getElementById('auth-screen').classList.remove('open');
+    renderUserInfo();
+    renderRoleUI();
+    showPage(getDefaultPage());
+  } catch (err) {
+    console.error(err);
+    setAuthToken(null);
+    authRole = 'user';
+    setAuthRole(null);
+    localStorage.removeItem('username');
+    showAuthScreen('login', err.message || 'Session expired. Please sign in again.');
+  }
+}
+
+async function loadData() {
+  products = await apiGetProducts();
+  transactions = await apiGetTransactions();
+  renderInventory();
+  renderStats();
+  renderCatChart();
+  renderIncomeChart();
+  renderReportCharts();
+  renderRecentTx();
+  renderTxLog();
+  populateTxCategoryFilter();
+  updateClearButtonState();
+}
+
+function renderUserInfo() {
+  const label = document.getElementById('user-label');
+  const logoutBtn = document.getElementById('logout-btn');
+  const username = localStorage.getItem('username');
+  if (authToken && username) {
+    label.textContent = `Signed in as ${username} (${authRole})`;
+    label.style.display = 'inline-flex';
+    logoutBtn.style.display = 'inline-flex';
+  } else {
+    label.style.display = 'none';
+    logoutBtn.style.display = 'none';
+  }
+}
 
 function genDates(n) {
   const dates = [];
@@ -480,51 +832,7 @@ function genDates(n) {
   }
   return dates;
 }
-function rnd(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
 
-let transactions = [];
-const d30 = genDates(30);
-const seedProds = [
-  { id:1, name:'USB-C Hub', cost:350, sell:650 },
-  { id:3, name:'Coffee Beans 250g', cost:80, sell:150 },
-  { id:5, name:'Screwdriver Set', cost:180, sell:320 },
-  { id:6, name:'Mineral Water 1L', cost:20, sell:35 }
-];
-d30.forEach((date, i) => {
-  const p = seedProds[i % seedProds.length];
-  transactions.push({ id: i * 2 + 1, date, productId: p.id, productName: p.name, type: 'out', qty: rnd(2, 12), price: p.sell, note: 'Sale' });
-  if (i % 3 === 0) {
-    const p2 = seedProds[(i + 1) % seedProds.length];
-    transactions.push({ id: i * 2 + 2, date, productId: p2.id, productName: p2.name, type: 'in', qty: rnd(10, 30), price: p2.cost, note: 'Restock' });
-  }
-});
-let nextTxId = transactions.length + 10;
-
-const catColors = { 'Electronics': '#185FA5', 'Food & Beverage': '#1D9E75', 'Clothing': '#D85A30', 'Tools': '#BA7517', 'Other': '#7F77DD' };
-let incomeChartObj = null, catChartObj = null, revenueChartObj = null, topChartObj = null;
-
-/* ─── Navigation ─── */
-const pageTitles = { dashboard: 'Dashboard', inventory: 'Inventory', transactions: 'Transactions', reports: 'Analytics' };
-
-function toggleSidebar() {
-  document.getElementById('sidebar').classList.toggle('open');
-  document.getElementById('sidebar-backdrop').classList.toggle('open');
-}
-
-function showPage(name, btn) {
-  document.querySelectorAll('.page').forEach(el => el.classList.remove('active'));
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  document.getElementById('page-' + name).classList.add('active');
-  if (btn) btn.classList.add('active');
-  document.getElementById('page-title').textContent = pageTitles[name];
-  // Close sidebar on mobile after navigation
-  document.getElementById('sidebar').classList.remove('open');
-  document.getElementById('sidebar-backdrop').classList.remove('open');
-  if (name === 'dashboard') { setTimeout(() => { renderIncomeChart(); renderCatChart(); }, 60); }
-  if (name === 'reports') { setTimeout(() => { renderReportCharts(); }, 60); }
-}
-
-/* ─── Stats ─── */
 function renderStats() {
   const totalItems = products.reduce((a, p) => a + p.stock, 0);
   const totalValue = products.reduce((a, p) => a + (p.stock * p.cost), 0);
@@ -541,7 +849,6 @@ function renderStats() {
   `;
 }
 
-/* ─── Charts ─── */
 function renderIncomeChart() {
   const n = parseInt(document.getElementById('chart-range').value);
   const dates = genDates(n);
@@ -570,7 +877,8 @@ function renderIncomeChart() {
 function renderCatChart() {
   const cats = {};
   products.forEach(p => { cats[p.category] = (cats[p.category] || 0) + p.stock; });
-  const labels = Object.keys(cats), data = Object.values(cats);
+  const labels = Object.keys(cats);
+  const data = Object.values(cats);
   const colors = labels.map(l => catColors[l] || '#888');
   const ctx = document.getElementById('catChart').getContext('2d');
   if (catChartObj) catChartObj.destroy();
@@ -585,21 +893,20 @@ function renderCatChart() {
 }
 
 function renderRecentTx() {
-  const recent = [...transactions].sort((a, b) => b.id - a.id).slice(0, 6);
+  const recent = [...transactions].sort((a, b) => b.date.localeCompare(a.date) || b.id - a.id).slice(0, 6);
   document.getElementById('recent-tx').innerHTML = recent.map(t => `
     <div class="tx-item">
       <div class="tx-info">
         <div class="tx-dot" style="background:${t.type === 'out' ? '#1D9E75' : '#D85A30'}"></div>
-        <div><div class="tx-name">${t.productName}</div><div class="tx-meta">${t.date} · ${t.note}</div></div>
+        <div><div class="tx-name">${t.productName}</div><div class="tx-meta">${t.date} · ${t.note || '-'}</div></div>
       </div>
       <div style="text-align:right;flex-shrink:0;margin-left:16px">
-        <div style="font-weight:500;font-size:13px;color:${t.type === 'out' ? '#1D9E75' : '#D85A30'}">${t.type === 'out' ? '+' : '-'}₱${(t.qty * t.price).toLocaleString()}</div>
-        <div style="font-size:11px;color:var(--text-secondary)">${t.qty} × ₱${t.price}</div>
+        <div style="font-weight:500;font-size:13px;color:${t.type === 'out' ? '#1D9E75' : '#D85A30'}">₱${(t.qty * t.price).toLocaleString()}</div>
+        <div style="font-size:11px;color:var(--text-secondary)">${t.qty} × ₱${t.price.toLocaleString()}</div>
       </div>
     </div>`).join('');
 }
 
-/* ─── Inventory ─── */
 function stockStatus(p) {
   if (p.stock === 0) return ['Out of stock', 'badge-red'];
   if (p.stock <= p.low) return ['Low stock', 'badge-amber'];
@@ -609,9 +916,17 @@ function stockStatus(p) {
 function renderInventory() {
   const q = (document.getElementById('search').value || '').toLowerCase();
   const filtered = products.filter(p => p.name.toLowerCase().includes(q) || p.category.toLowerCase().includes(q));
+  const canManageProducts = hasPermission('editProducts');
+
   document.getElementById('inv-tbody').innerHTML = filtered.length ? filtered.map(p => {
     const [label, cls] = stockStatus(p);
     const margin = p.sell > 0 ? Math.round((p.sell - p.cost) / p.sell * 100) : 0;
+    const actions = canManageProducts ? `<div style="display:flex;gap:4px;flex-direction:column;min-width:76px">
+          <button class="btn btn-sm" onclick="quickRestock(${p.id})">Restock</button>
+          <button class="btn btn-sm" onclick="openEditModal(${p.id})">Edit</button>
+          <button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})">Delete</button>
+        </div>` : `<span style="color:var(--text-secondary)">Read-only</span>`;
+
     return `<tr>
       <td style="font-weight:500">${p.name}</td>
       <td style="color:var(--text-secondary)">${p.category}</td>
@@ -620,21 +935,35 @@ function renderInventory() {
       <td>₱${p.sell.toLocaleString()}</td>
       <td><span style="color:${margin >= 30 ? '#1D9E75' : margin >= 15 ? '#BA7517' : '#D85A30'}">${margin}%</span></td>
       <td><span class="badge ${cls}">${label}</span></td>
-      <td>
-        <div style="display:flex;gap:4px;flex-direction:column;min-width:76px">
-          <button class="btn btn-sm" onclick="quickRestock(${p.id})">Restock</button>
-          <button class="btn btn-sm" onclick="openEditModal(${p.id})">Edit</button>
-          <button class="btn btn-sm btn-danger" onclick="deleteProduct(${p.id})">Delete</button>
-        </div>
-      </td>
+      <td>${actions}</td>
     </tr>`;
   }).join('') : `<tr><td colspan="8"><div class="empty">No products found</div></td></tr>`;
 }
 
-/* ─── Transaction Log ─── */
+async function renderApprovalList() {
+  try {
+    const approvals = await apiGetApprovals();
+    const rows = approvals.length ? approvals.map(user => {
+      return `<tr>
+        <td>${user.email || user.username}</td>
+        <td>${user.username}</td>
+        <td>${user.account_type}</td>
+        <td style="color:var(--text-secondary)">${new Date(user.createdAt).toLocaleString()}</td>
+        <td style="display:flex;gap:8px">
+          <button class="btn btn-sm btn-primary" onclick="approveUser(${user.id})">Approve</button>
+          <button class="btn btn-sm btn-danger" onclick="rejectUser(${user.id})">Reject</button>
+        </td>
+      </tr>`;
+    }).join('') : `<tr><td colspan="5"><div class="empty">No pending accounts found</div></td></tr>`;
+    document.getElementById('approvals-tbody').innerHTML = rows;
+  } catch (err) {
+    document.getElementById('approvals-tbody').innerHTML = `<tr><td colspan="5"><div class="empty">${err.message || 'Unable to load approvals.'}</div></td></tr>`;
+  }
+}
+
 function getTransactionCategory(tx) {
   const p = products.find(x => x.id === tx.productId);
-  return p ? p.category : '';
+  return p ? p.category : 'Unknown';
 }
 
 function populateTxCategoryFilter() {
@@ -657,7 +986,7 @@ function getFilteredTransactions() {
     if (category && getTransactionCategory(t) !== category) return false;
     if (date && t.date !== date) return false;
     return true;
-  }).sort((a, b) => b.id - a.id).slice(0, 100);
+  }).sort((a, b) => (b.date.localeCompare(a.date) || b.id - a.id)).slice(0, 100);
 }
 
 function markTxFiltersChanged() {
@@ -744,7 +1073,7 @@ function exportTx(format) {
   alert('Export complete. Clear is now enabled for the current filtered transactions.');
 }
 
-function clearTransactions() {
+async function clearTransactions() {
   if (!txExported) return;
   const filtered = getFilteredTransactions();
   if (!filtered.length) {
@@ -752,18 +1081,14 @@ function clearTransactions() {
     return;
   }
   if (!confirm(`Clear ${filtered.length} transaction(s)? This action cannot be undone.`)) return;
-  const filteredIds = new Set(filtered.map(t => t.id));
-  transactions = transactions.filter(t => !filteredIds.has(t.id));
+  const ids = filtered.map(t => t.id);
+  await apiDeleteTransactions({ ids });
   txExported = false;
   updateClearButtonState();
-  renderTxLog();
-  renderStats();
-  renderIncomeChart();
-  renderReportCharts();
+  await loadData();
   alert('Transactions cleared successfully.');
 }
 
-/* ─── Report Charts ─── */
 function renderReportCharts() {
   const dates = genDates(30);
   const revenue = dates.map(d => transactions.filter(t => t.date === d && t.type === 'out').reduce((a, t) => a + (t.qty * t.price), 0));
@@ -810,11 +1135,22 @@ function renderReportCharts() {
   </tr>`).join('') : `<tr><td colspan="6"><div class="empty">All products are adequately stocked</div></td></tr>`;
 }
 
-/* ─── Modals ─── */
+function populateCategoryDropdown() {
+  const catSelect = document.getElementById('f-cat');
+  if (!categories || categories.length === 0) {
+    catSelect.innerHTML = '<option>No categories available</option>';
+    return;
+  }
+  catSelect.innerHTML = categories.map(c => `<option value="${c.name}">${c.name}</option>`).join('');
+}
+
 function openAddModal() {
   editingProductId = null;
   ['f-name', 'f-stock', 'f-low', 'f-cost', 'f-sell'].forEach(id => document.getElementById(id).value = '');
-  document.getElementById('f-cat').value = 'Electronics';
+  populateCategoryDropdown();
+  if (categories.length > 0) {
+    document.getElementById('f-cat').value = categories[0].name;
+  }
   document.getElementById('modal-title').textContent = 'Add product';
   document.getElementById('add-modal').classList.add('open');
 }
@@ -823,6 +1159,7 @@ function openEditModal(id) {
   const p = products.find(x => x.id === id);
   if (!p) return;
   editingProductId = id;
+  populateCategoryDropdown();
   document.getElementById('f-name').value = p.name;
   document.getElementById('f-cat').value = p.category;
   document.getElementById('f-stock').value = p.stock;
@@ -833,18 +1170,17 @@ function openEditModal(id) {
   document.getElementById('add-modal').classList.add('open');
 }
 
-function deleteProduct(id) {
+async function deleteProduct(id) {
   const p = products.find(x => x.id === id);
   if (!p) return;
   if (!confirm(`Delete product "${p.name}"? This cannot be undone.`)) return;
-  products = products.filter(x => x.id !== id);
-  if (editingProductId === id) editingProductId = null;
-  renderInventory(); renderStats(); renderCatChart(); renderTxLog();
+  await apiDeleteProduct(id);
+  await loadData();
 }
 
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
-function saveProduct() {
+async function saveProduct() {
   const name = document.getElementById('f-name').value.trim();
   if (!name) { document.getElementById('f-name').focus(); return; }
   const category = document.getElementById('f-cat').value;
@@ -852,37 +1188,47 @@ function saveProduct() {
   const low = parseInt(document.getElementById('f-low').value) || 5;
   const cost = parseFloat(document.getElementById('f-cost').value) || 0;
   const sell = parseFloat(document.getElementById('f-sell').value) || 0;
+
   if (editingProductId) {
-    const p = products.find(x => x.id === editingProductId);
-    if (!p) return;
-    p.name = name; p.category = category; p.stock = stock; p.low = low; p.cost = cost; p.sell = sell;
-    transactions.forEach(t => { if (t.productId === p.id) t.productName = name; });
-    editingProductId = null;
+    await apiUpdateProduct(editingProductId, { name, category, stock, low, cost, sell });
   } else {
-    products.push({ id: nextId++, name, category, stock, low, cost, sell });
+    await apiAddProduct({ name, category, stock, low, cost, sell });
   }
+
   closeModal('add-modal');
-  renderInventory(); renderStats(); renderCatChart(); renderTxLog(); populateTxCategoryFilter();
+  await loadData();
 }
 
-function quickRestock(id) {
+async function quickRestock(id) {
   const p = products.find(x => x.id === id);
   if (!p) return;
   const qty = parseInt(prompt(`Restock "${p.name}" — enter quantity to add:`));
   if (!qty || qty < 1) return;
-  p.stock += qty;
-  const today = new Date().toISOString().split('T')[0];
-  transactions.push({ id: nextTxId++, date: today, productId: p.id, productName: p.name, type: 'in', qty, price: p.cost, note: 'Manual restock' });
-  renderInventory(); renderStats(); renderRecentTx(); renderTxLog();
+  await apiAddTransaction({ productId: id, type: 'in', qty, price: p.cost, note: 'Manual restock', date: new Date().toISOString().split('T')[0] });
+  await loadData();
+}
+
+function syncTxPrice() {
+  const pid = parseInt(document.getElementById('tx-product').value);
+  const type = document.getElementById('tx-type').value;
+  const p = products.find(x => x.id === pid);
+  if (!p) return;
+  document.getElementById('tx-price').value = type === 'out' ? p.sell : p.cost;
 }
 
 function openTxModal() {
+  if (!products.length) {
+    alert('Add a product before recording transactions.');
+    return;
+  }
   document.getElementById('tx-product').innerHTML = products.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
-  ['tx-qty', 'tx-price', 'tx-note'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('tx-type').value = 'out';
+  syncTxPrice();
+  ['tx-qty', 'tx-note'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('tx-modal').classList.add('open');
 }
 
-function saveTx() {
+async function saveTx() {
   const pid = parseInt(document.getElementById('tx-product').value);
   const p = products.find(x => x.id === pid);
   const type = document.getElementById('tx-type').value;
@@ -890,26 +1236,141 @@ function saveTx() {
   const price = parseFloat(document.getElementById('tx-price').value) || 0;
   const note = document.getElementById('tx-note').value;
   if (qty < 1) { document.getElementById('tx-qty').focus(); return; }
+  if (!p) { alert('Selected product not found.'); return; }
   if (type === 'out' && p.stock < qty) { alert(`Not enough stock! Only ${p.stock} units available.`); return; }
-  if (type === 'out') p.stock -= qty; else p.stock += qty;
-  const today = new Date().toISOString().split('T')[0];
-  transactions.push({ id: nextTxId++, date: today, productId: pid, productName: p.name, type, qty, price, note });
+
+  await apiAddTransaction({ productId: pid, type, qty, price, note, date: new Date().toISOString().split('T')[0] });
   closeModal('tx-modal');
-  renderStats(); renderRecentTx(); renderInventory(); renderTxLog();
-  renderIncomeChart(); renderCatChart();
+  await loadData();
 }
+
+async function approveUser(id) {
+  if (!confirm('Approve this account?')) return;
+  await apiApproveAccount(id);
+  await renderApprovalList();
+}
+
+async function rejectUser(id) {
+  if (!confirm('Reject this account?')) return;
+  await apiRejectAccount(id);
+  await renderApprovalList();
+}
+
+// ────── CATEGORY MANAGEMENT ──────
+let categories = [];
+let editingCategoryId = null;
+
+async function loadCategories() {
+  try {
+    categories = await apiGetCategories();
+  } catch (err) {
+    console.error('Failed to load categories:', err);
+    categories = [];
+  }
+}
+
+function renderCategoryList() {
+  const tbody = document.getElementById('categories-tbody');
+  if (!categories.length) {
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty">No categories configured</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = categories.map(cat => `<tr>
+    <td style="font-weight:500">${cat.name}</td>
+    <td><div style="display:flex;align-items:center;gap:8px"><span style="width:24px;height:24px;background:${cat.color};border-radius:4px;border:0.5px solid var(--border)"></span>${cat.color}</div></td>
+    <td style="color:var(--text-secondary);font-size:12px">${new Date(cat.createdAt).toLocaleDateString()}</td>
+    <td style="display:flex;gap:6px"><button class="btn btn-sm" onclick="openEditCategoryModal(${cat.id})">Edit</button><button class="btn btn-sm btn-danger" onclick="deleteCategory(${cat.id})">Delete</button></td>
+  </tr>`).join('');
+}
+
+function openAddCategoryModal() {
+  editingCategoryId = null;
+  document.getElementById('f-cat-name').value = '';
+  document.getElementById('f-cat-color').value = '#185FA5';
+  document.getElementById('f-cat-color-hex').value = '#185FA5';
+  document.getElementById('category-modal-title').textContent = 'Add Category';
+  document.getElementById('category-modal').classList.add('open');
+}
+
+function openEditCategoryModal(id) {
+  const cat = categories.find(c => c.id === id);
+  if (!cat) return;
+  editingCategoryId = id;
+  document.getElementById('f-cat-name').value = cat.name;
+  document.getElementById('f-cat-color').value = cat.color;
+  document.getElementById('f-cat-color-hex').value = cat.color;
+  document.getElementById('category-modal-title').textContent = 'Edit Category';
+  document.getElementById('category-modal').classList.add('open');
+}
+
+async function saveCategory() {
+  const name = document.getElementById('f-cat-name').value.trim();
+  const color = document.getElementById('f-cat-color').value.trim();
+  
+  if (!name) {
+    alert('Category name is required');
+    document.getElementById('f-cat-name').focus();
+    return;
+  }
+  
+  if (!color || !/^#[0-9A-F]{6}$/i.test(color)) {
+    alert('Please select a valid color');
+    return;
+  }
+
+  try {
+    if (editingCategoryId) {
+      await apiUpdateCategory(editingCategoryId, { name, color });
+    } else {
+      await apiAddCategory({ name, color });
+    }
+    closeModal('category-modal');
+    await loadCategories();
+    renderCategoryList();
+  } catch (err) {
+    alert(`Error saving category: ${err.message}`);
+  }
+}
+
+async function deleteCategory(id) {
+  const cat = categories.find(c => c.id === id);
+  if (!cat) return;
+  if (!confirm(`Delete category "${cat.name}"? Products using this category will need to be updated.`)) return;
+  
+  try {
+    await apiDeleteCategory(id);
+    await loadCategories();
+    renderCategoryList();
+  } catch (err) {
+    alert(`Error deleting category: ${err.message}`);
+  }
+}
+
+// Sync color input and hex input
+document.addEventListener('DOMContentLoaded', () => {
+  const colorInput = document.getElementById('f-cat-color');
+  const hexInput = document.getElementById('f-cat-color-hex');
+  if (colorInput && hexInput) {
+    colorInput.addEventListener('input', (e) => {
+      hexInput.value = e.target.value;
+    });
+    hexInput.addEventListener('input', (e) => {
+      if (/^#[0-9A-F]{6}$/i.test(e.target.value)) {
+        colorInput.value = e.target.value;
+      }
+    });
+  }
+});
 
 /* ─── Close modal on backdrop click ─── */
 document.querySelectorAll('.overlay').forEach(el => el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); }));
 
-/* ─── Init ─── */
-renderStats();
-renderRecentTx();
-renderInventory();
-populateTxCategoryFilter();
-updateClearButtonState();
-renderTxLog();
-setTimeout(() => { renderIncomeChart(); renderCatChart(); }, 100);
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('tx-product').addEventListener('change', syncTxPrice);
+  document.getElementById('tx-type').addEventListener('change', syncTxPrice);
+  initApp();
+  loadCategories();
+});
 </script>
 </body>
 </html>
